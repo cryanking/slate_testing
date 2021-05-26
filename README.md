@@ -1,6 +1,17 @@
-## Going from the old dataset to model artifacts
-Prepare the list of features you're going to use and the type which they have.
+## Getting slate installed
+This assumes you have some familiarity with docker and have a docker daemon set up. Copy the image from bjcdfs02.bjc-nt.bjc.org/Shared/HIP_Infrastructure/Innovation_Lab. For me that's
+```
+sudo mount -t cifs -o username=christopherking,domain=accounts,rw //bjcdfs02.bjc-nt.bjc.org/Shared/HIP_Infrastructure/Innovation_Lab /mnt/temp
+```
+and copy the Slate_v2.0 directory to a location of your choosing. Then, load the image into your docker index:
+```
+docker load < dsrt-slate-v2.0.tar
+```
 
+## Going from the old dataset to model artifacts
+Prepare the list of features you're going to use and the type which they have (features in training will need to have the same order as features in test) and save that as a csv. I have a file which extracts those features from the metavision dataset and renames the appropriately. There is a switch to use the unimputed or imputed datasets. An example in this directory is in "script_helpers/mv_extract.R"
+
+Then run a python script to load the training data, create the preprocessing steps and imputation and train the classifier and regressor and save those artifacts. An example is in "script_helpers/model_artifacts.py"
 
 
 ## Using Slate
