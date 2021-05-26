@@ -1,0 +1,56 @@
+EpicName,MVName,dtype
+A FIB,AFIB,float
+ALT,ALT,float
+ASA,ASA,float
+Age,Age,float
+Alb,Albumin,float
+Alk Phos,Alkaline_Phosphate,float
+Anemia,ANEMIA,float
+Anest Type,Anesthesia_Type,str
+Aortic Stenosis,VALVULAR_DISEASE,float
+Asthma,ASTHMA,float
+BUN,Urea_Nitrogen,float
+CAD,CAD,float
+CHARLSON COMORBIDITY INDEX Score Column,CCI,float
+CHF,CHF,float
+CKD,CKD,float
+COPD,COPD,float
+Cancer,CANCER_HX,float
+Cirrhosis,CIRRHOSIS,float
+Coombs+,COOMBS_POS,float
+Creat,Creatinine,float
+DVT,DVT,float
+Dementia,DEMENTIA,float
+Diabetes,DM,float
+Dialysis,Dialysis_History,float
+Diastolic,CHF_Diastolic_Function,int
+Diastolic BP,PreOp_Diastolic,float
+Emerg,emergency,float
+GERD,GERD,float
+Gluc,Glucose,float
+HTN,HTN,float
+Hct,Hematocrit,float
+Height,HEIGHT,float
+Ideal Wt (kg),Ideal_Body_Weight,float
+LVEF,LVEF,float
+Last BMI,BMI,float
+METs,FUNCTIONAL_CAPACITY,int
+MI,CAD_PRIORMI,float
+Na,Sodium,float
+OSA,OSA,float
+Outpt Insulin,Outpatient_Insulin,float
+PAD,PAD,float
+PE,PE,float
+PPM-AICD,PPM_ICD,float
+Potassium,Potassium,float
+Pulm HTN,PHTN,float
+Pulse,PreOp.HR,float
+SaO2,PreOp.SpO2,float
+Service,Surg_Type,str
+Sex,SEX,str
+Smoker,SMOKING_EVER,float
+Stroke-TIA,CV_TIA_STROKE,float
+Systolic BP,PreOp_Systolic,float
+WBC,White_Blood_Cells,float
+Weight,WEIGHT,float
+aPTT,Partial_Thromboplastin_Time,float
