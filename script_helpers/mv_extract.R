@@ -35,7 +35,7 @@ if(is.null(preops[["CCI"]] )) {
 preops %<>% mutate(CCI = 0.983 ^ exp(CCI*0.9 ) )
 
 ## Subset to requested variables
-preops %<>% select(caseid, any_of(name_alignment$MVName) )
+preops %<>% select(caseid, any_of(colsource$MVName) )
  
 ## Sex in the form epix expects
 preops %<>% mutate(SEX = case_when(SEX=="1"~0L, SEX=="2"~1L, TRUE~NA_integer_ ))
