@@ -1,0 +1,28 @@
+Service,epic_name,Surg_Type
+5,Acute Critical Care Surgery,ACCS
+10,Anesthesiology,Other
+40,Cardiothoracic,Cardiothoracic
+50,Cardiovascular,Other
+55,Colorectal,Colorectal
+100,Gastroenterology,Other
+110,General,Hepatobiliary
+120,General Surgery,Hepatobiliary
+165,Hepatobiliary,Hepatobiliary
+185,Minimally Invasive Surgery,Minimally Invasive Surgery
+187,Minor Procedures,Other
+200,Obstetrics / Gynecology,GYNECOLOGY
+230,Ophthalmology,Other
+230,Ophthalmology,Other
+250,Orthopaedics,Orthopaedic
+255,Otolaryngology,Otolaryngology
+340,Plastics,Plastic
+360,Pulmonary,Other
+390,Transplant,Transplant
+400,Trauma,ACCS
+410,Urology,Urology
+420,Vascular,Vascular
+440,Dental,Other
+450,Pain Management,Other
+666,Neurosurgery,Neurosurgery
+NA,Unknown,UNKNOWN
+480,Orthopaedic Spine,Orthopaedics
