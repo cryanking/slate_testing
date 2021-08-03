@@ -38,67 +38,7 @@ a request for a prediction occurs.
 
 
 def predict(data):
-    """
-    This is what returns scores/contributions to cache for a patient, or batch.
-
-    Parameters:
-    ---------------------------------------------------------------------------------------
-    data – json payload with both features and metadata; can separate with Parcel.unpack_input()
-
-    Returns:
-    ---------------------------------------------------------------------------------------
-    Cache formatted prediction(s) for each given sample/patient
-
-    Schemas:
-    ---------------------------------------------------------------------------------------
-    The input/output schemas are as follows (see pip_packages/parcel.py for packaging and unpackaging utilities):
-    input (content of parameter data):
-        {
-            "Data": {
-                "OutputType": "",
-                "PredictiveContext": {},
-                "EntityId": [
-                        { "ID": "", "Type": "" },
-                        { "ID": "", "Type": "" },
-                        ...
-                    ],
-                "Feature1": ["value1", "value2", ...],
-                "Feature2": [...]
-                ...
-                }
-        }
-
-
-
-    output (schema of what to return):
-        {
-            "OutputType": "",
-            "PredictiveContext": { },
-            "ScoreDisplayed": "RegressionOutputOrClass1Probabilities",
-            "EntityId": [
-                {  "ID": "", "Type": ""},
-                {  "ID": "", "Type": ""},
-                ...
-            ],
-            ...
-            "Outputs": {                                              // this name must be "Outputs"
-                "Classification1": {                                  // this name doesn't matter, currently cache will simply pick up the first child of "Outputs"
-                    "Scores": {                                       // this must be "Scores"
-                        "RegressionOutputOrClass1Probabilities" : {   // this is whatever you set as the value of ScoreDisplayed (there can be more than one score, e.g. probabilities for each class, but
-                            "Values": [...]                           //         ScoreDisplayed sets the positive class)
-                    }
-                    "Features": {
-                        "Feature1": {
-                            "Contributions":[]
-                    },
-                        "Feature2": {
-                            "Contributions":[]
-                    },
-                    ...
-                }
-            }
-        }
-    """
+ 
 
     # ordered_columns simply lists the feature names, and the type they should be cast to.
     # The type can be a string or numpy dtype.
@@ -130,6 +70,7 @@ def predict(data):
     ###     Make your predictions here         ###
     ##############################################
 
+    
     bad_holder = dataframe['Anest Type'] == '0'
     dataframe = dataframe[dataframe['Anest Type'] != '0' ]
     dataframe.replace(to_replace=-1, value=np.nan, inplace=True)

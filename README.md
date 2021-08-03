@@ -24,8 +24,10 @@ docker run -it --rm  -v "/home/christopherking/slate_test/:/home/eccp/" --user e
 Once in slate, initialize a project skeleton:
 
 ```
-dsutils new-project --org="WUSM-testing" --name="DataIntegration" --version=0.001 
+dsutils new-project --org="wustl" --name="postop_death_test" --version=1.1 
 ```
+Note that version MUST be integer.minor. The org must be wustl. The name must match the name in epic. You can change these in definition.json file created later.
+
 
 If you have a reporting workbench sample, transform it to a json file:
 ```
@@ -60,10 +62,10 @@ echo "ibex" >> requirements.txt
 
 The default "definition.json" needs to be modified for any callouts or web secrets. Test that the model works:
 ```
-dsutils ondemand > test_output.kson
+dsutils ondemand > test_output.json
 ```
 
-Modify your python until there are no errors, then package it up
+Modify your python until there are no errors, then package it up. This can require finessing the file permissions of the target directory. The slate package really wants to run as the "eccp" user. On moose, I created an eccp user and added them to my file permission group. You can also chmod +666 the target.
 ```
 dsutils archive
 ```

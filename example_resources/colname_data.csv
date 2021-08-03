@@ -1,56 +1,55 @@
 EpicName,MVName,dtype
-A FIB,AFIB,float
+Afib,AFIB,float
 ALT,ALT,float
 ASA,ASA,float
 Age,Age,float
-Alb,Albumin,float
-Alk Phos,Alkaline_Phosphate,float
+Albumin,Albumin,float
+AlkPhos,Alkaline_Phosphate,float
 Anemia,ANEMIA,float
-Anest Type,Anesthesia_Type,str
-Aortic Stenosis,VALVULAR_DISEASE,float
+AnesthesiaType,Anesthesia_Type,str
+AoStenosis,VALVULAR_DISEASE,float
 Asthma,ASTHMA,float
 BUN,Urea_Nitrogen,float
 CAD,CAD,float
-CHARLSON COMORBIDITY INDEX Score Column,CCI,float
+Charlson,CCI,float
 CHF,CHF,float
 CKD,CKD,float
 COPD,COPD,float
 Cancer,CANCER_HX,float
 Cirrhosis,CIRRHOSIS,float
-Coombs+,COOMBS_POS,float
-Creat,Creatinine,float
+Coombs,COOMBS_POS,float
+Creatinine,Creatinine,float
 DVT,DVT,float
 Dementia,DEMENTIA,float
-Diabetes,DM,float
+DM,DM,float
 Dialysis,Dialysis_History,float
 Diastolic,CHF_Diastolic_Function,int
-Diastolic BP,PreOp_Diastolic,float
-Emerg,emergency,float
+DBP,PreOp_Diastolic,float
+Emergency,emergency,float
 GERD,GERD,float
-Gluc,Glucose,float
+Glucose,Glucose,float
 HTN,HTN,float
-Hct,Hematocrit,float
+Hematocrit,Hematocrit,float
 Height,HEIGHT,float
-Ideal Wt (kg),Ideal_Body_Weight,float
 LVEF,LVEF,float
-Last BMI,BMI,float
+BMI,BMI,float
 METs,FUNCTIONAL_CAPACITY,int
 MI,CAD_PRIORMI,float
-Na,Sodium,float
+Sodium,Sodium,float
 OSA,OSA,float
-Outpt Insulin,Outpatient_Insulin,float
+Insulin,Outpatient_Insulin,float
 PAD,PAD,float
 PE,PE,float
-PPM-AICD,PPM_ICD,float
+PPM,PPM_ICD,float
 Potassium,Potassium,float
-Pulm HTN,PHTN,float
+pHTN,PHTN,float
 Pulse,PreOp.HR,float
 SaO2,PreOp.SpO2,float
 Service,Surg_Type,str
 Sex,SEX,str
 Smoker,SMOKING_EVER,float
-Stroke-TIA,CV_TIA_STROKE,float
-Systolic BP,PreOp_Systolic,float
+Stroke,CV_TIA_STROKE,float
+SBP,PreOp_Systolic,float
 WBC,White_Blood_Cells,float
 Weight,WEIGHT,float
 aPTT,Partial_Thromboplastin_Time,float
