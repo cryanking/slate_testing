@@ -1,11 +1,11 @@
 ## subsample the columns of ACT2 to match those for slate experiment
-## docker run --rm -it -v '/mnt/ris/ActFastData/:/research/' -v '/home/christopherking/gitdirs/actfast_processing_container:/actfast_prep' -v "/home/christopherking/slate_test/:/pkghome/" cryanking/verse_plus /bin/bash
+## docker run --rm -it -v '/mnt/ris/ActFastData/:/research/' -v '/home/christopherking/gitdirs/actfast_processing_container:/actfast_prep' -v "/home/christopherking/slate_test/resources:/pkghome/" cryanking/verse_plus /bin/bash
 
 library(tidyverse)
 library(magrittr)
 library(data.table)
 
-colsource <- "colname_data.csv"
+colsource <- "/pkghome/colname_data.csv"
 data_pre_imputed <- FALSE
 
 local_arg <- commandArgs(trailingOnly=TRUE)
@@ -19,6 +19,7 @@ if(length(local_arg) > 0L) {
 
 de_i_location <- "/research/Actfast_deident/"
 
+name_alignment <- read_csv(colsource)
 
 if(data_pre_imputed) {
   preops <- read_csv(paste0(de_i_location, "preops.csv") )
@@ -35,7 +36,7 @@ if(is.null(preops[["CCI"]] )) {
 preops %<>% mutate(CCI = 0.983 ^ exp(CCI*0.9 ) )
 
 ## Subset to requested variables
-preops %<>% select(caseid, any_of(colsource$MVName) )
+preops %<>% select(caseid, any_of(name_alignment$MVName) )
  
 ## Sex in the form epix expects
 preops %<>% mutate(SEX = case_when(SEX=="1"~0L, SEX=="2"~1L, TRUE~NA_integer_ ))
