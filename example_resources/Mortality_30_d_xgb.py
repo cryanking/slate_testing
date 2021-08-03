@@ -71,8 +71,8 @@ def predict(data):
     ##############################################
 
     
-    bad_holder = dataframe['Anest Type'] == '0'
-    dataframe = dataframe[dataframe['Anest Type'] != '0' ]
+    bad_holder = dataframe['AnesthesiaType'] == '0'
+    dataframe = dataframe[dataframe['AnesthesiaType'] != '0' ]
     dataframe.replace(to_replace=-1, value=np.nan, inplace=True)
 
     ## transform some special missing data
@@ -92,14 +92,31 @@ def predict(data):
     dataframe.replace(to_replace={'METs': {4:1, 3:2 , 2:3, 1:4, 888:5, 889:5, 999:np.nan} },  inplace=True)
 
     ## TODO: load this map fro a csv instead of code
-    dataframe.replace(to_replace={'Anest Type': {'2':'1', '4':'2', '6':'5', '7':'4', '8':'6', '9':'2', '10':'2', '11':'2', '12':'1', '5':'1', '999':'other'} },  inplace=True)
-    dataframe['Anest Type'] = dataframe['Anest Type'].fillna('Other')
+    dataframe.replace(to_replace={'AnesthesiaType': {'2':'1', '4':'2', '6':'5', '7':'4', '8':'6', '9':'2', '10':'2', '11':'2', '12':'1', '5':'1', '999':'other'} },  inplace=True)
+    dataframe['AnesthesiaType'] = dataframe['AnesthesiaType'].fillna('Other')
 
     ## this is some lumping that happened due to small categories
-    dataframe.replace(to_replace={'Anest Type': {'5':'Other', '6':'Other'} },  inplace=True)
+    dataframe.replace(to_replace={'AnesthesiaType': {'5':'Other', '6':'Other'} },  inplace=True)
 
     ## TODO: go back to MV and create a "spine" cat
     dataframe.replace(to_replace={'Service': {'480':'250'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'20':'10'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'30':'40'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'60':'10'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'70':'250'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'80':'10'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'90':'255'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'130':'NA'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'140':'200'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'150':'340'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'160':'255'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'170':'10'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'180':'255'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'190':'666'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'280':'NA'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'350':'250'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'395':'10'} },  inplace=True)
+    dataframe.replace(to_replace={'Service': {'490':'666'} },  inplace=True)
 
     
     data_train2 = ct.transform(dataframe)

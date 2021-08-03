@@ -29,35 +29,37 @@ dsutils new-project --org="wustl" --name="postop_death_test" --version=1.1
 Note that version MUST be integer.minor. The org must be wustl. The name must match the name in epic. You can change these in definition.json file created later.
 
 
-If you have a reporting workbench sample, transform it to a json file:
-```
-dsutils make-ondemand-payload --from-RW --root-dir ./DataIntegration/ --samples=591 --file './resources/Test Reporting Workbench 2021-05-19.csv'
-```
+
 
 Then, copy the model artifacts etc, then enter the directory
 
 ```
-cp resources/*.p ./DataIntegration/resources/
-cp resources/*.csv ./DataIntegration/resources/
-cp resources/*.xgb ./DataIntegration/resources/
-cd DataIntegration
+cp resources/*.p ./postop_death_test/resources/
+cp resources/*.csv ./postop_death_test/resources/
+cp resources/*.xgb ./postop_death_test/resources/
 ```
 Copy over the model.py if you have already made it:
 ```
-cp resources/Mortality_30_d_xgb.py ./DataIntegration/src/DataIntegration/model.py
+cp resources/Mortality_30_d_xgb.py ./postop_death_test/src/postop_death_test/model_code.py
 ```
 
 Install package dependencies, for example,
 
 ```
-dsutils install xgboost==1.4.2 scikit-learn==0.24.2 ibex
+cd postop_death_test
+dsutils install xgboost==1.4.2 scikit-learn==0.24.1 ibex
 ```
 
 Make sure to add these to the requirements.txt:
 ```
 echo "xgboost==1.4.2" >> requirements.txt
-echo "scikit-learn==0.24.2" >> requirements.txt
+echo "scikit-learn==0.24.1" >> requirements.txt
 echo "ibex" >> requirements.txt
+```
+
+If you have a reporting workbench sample, transform it to a json file:
+```
+dsutils make-ondemand-payload --from-RW --root-dir /home/eccp/postop_death_test/ --samples=8 --file '/home/eccp/resources/Test Reporting Workbench 2021-08-03.xlsx'
 ```
 
 The default "definition.json" needs to be modified for any callouts or web secrets. Test that the model works:

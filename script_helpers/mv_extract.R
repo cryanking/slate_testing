@@ -1,5 +1,7 @@
 ## subsample the columns of ACT2 to match those for slate experiment
-## docker run --rm -it -v '/mnt/ris/ActFastData/:/research/' -v '/home/christopherking/gitdirs/actfast_processing_container:/actfast_prep' -v "/home/christopherking/slate_test/resources:/pkghome/" cryanking/verse_plus /bin/bash
+## docker run --rm -it -v '/mnt/ris/ActFastData/:/research/' -v '/home/christopherking/gitdirs/slate_testing/script_helpers:/actfast_prep' -v "/home/christopherking/slate_test/resources/:/pkghome/" cryanking/verse_plus R --file /actfast_prep/mv_extract.R
+
+
 
 library(tidyverse)
 library(magrittr)
@@ -49,7 +51,7 @@ preops %<>% mutate(CHF_Diastolic_Function = as.integer(CHF_Diastolic_Function) -
 
 
 ## surgicial service conversion table
-epic_service_numerics <- read_csv("surgical_service_map.csv")
+epic_service_numerics <- read_csv("/pkghome/surgical_service_map.csv")
 
 # epic_service_numerics <- c(
 # "5" , "Acute Critical Care Surgery" , "ACCS" ,
@@ -76,7 +78,7 @@ epic_service_numerics <- read_csv("surgical_service_map.csv")
 # "420" , "Vascular" , "Vascular" , 
 # "440" , "Dental" , "Other" , 
 # "450" , "Pain Management" , "Other" , 
-# "666" , "Neurosurgery" , "Neurosurgery" , 
+# "190" , "Neurosurgery" , "Neurosurgery" , 
 # NA_character_ , "Unknown" , "UNKNOWN" , 
 # "480" , "Orthopaedic Spine" , "Orthopaedics" 
 # ) %>% matrix(ncol=3, byrow=TRUE) %>% as_tibble %>% set_names(c("Service", "epic_name", "Surg_Type") )

@@ -33,13 +33,13 @@ ct = make_column_transformer(
      remainder='passthrough')
 
 data_train2 = ct.fit_transform(data_train)
-pickle.dump(ct,open('/pkghome/DataIntegration/resources/transform.p', 'wb'))
+pickle.dump(ct,open('/pkghome/transform.p', 'wb'))
 
 imp = IterativeImputer(max_iter=5, random_state=0)
 
 imp = imp.fit(data_train2)
 
-pickle.dump(imp,open('/pkghome/DataIntegration/resources/impute.p', 'wb'))
+pickle.dump(imp,open('/pkghome/impute.p', 'wb'))
 
 ## fit and save the sklearn method
 
@@ -70,10 +70,10 @@ y_pred = regressor.predict_proba(X_test)[:,1]
 print("Accuracy:",metrics.roc_auc_score(y_test, y_pred))
 
 
-pickle.dump(regressor,open('/pkghome/DataIntegration/resources/Mortality_30d_rf.p', 'wb'))
+pickle.dump(regressor,open('/pkghome/Mortality_30d_rf.p', 'wb'))
 
 
-pickle.dump(lr_reg_model,open('/pkghome/DataIntegration/resources/Mortality_30d_lr.p', 'wb'))
+pickle.dump(lr_reg_model,open('/pkghome//Mortality_30d_lr.p', 'wb'))
 
 xgbmodel = XGBClassifier(n_estimators=5,max_depth=4, learning_rate=1, random_state=101 ,objective='binary:logistic')
 
@@ -81,7 +81,7 @@ xgbmodel.fit(X=X_train, y=y_train)
 
 y_pred = xgbmodel.predict_proba(X_test)[:,1]
 print("Accuracy:",metrics.roc_auc_score(y_test, y_pred))
-xgbmodel.save_model('/pkghome/DataIntegration/resources/Mortality_30d_xgb.xgb')
+xgbmodel.save_model('/pkghome//Mortality_30d_xgb.xgb')
 
 
 
