@@ -60,7 +60,7 @@ def predict(data):
     ##############################################
     
 	    xgb_model = XGBClassifier()
-	    xgb_model.load_model(os.path.join(os.getcwd(), "resources", "Mortality_30d_xgb.xgb") )
+	    xgb_model.load_model(os.path.join(os.getcwd(), "resources", "aki_xgb.xgb") )
 	    ct=pickle.load(open(os.path.join(os.getcwd(), "resources", 'transform.p') , "rb" ) )
 	    ct.named_transformers_.onehotencoder.handle_unknown = 'ignore'
 
@@ -169,7 +169,7 @@ def predict(data):
 	        {
             # This ModelScore_DisplayName corresponds to
             # RegressionOutputOrClass1Probabilities in the return schema above
-	            "Death_in_30d": [str(probability) for probability in raw_predictions],
+	            "AKI": [str(probability) for probability in raw_predictions],
 	            "OtherMetaData": [str(feat1_contribution*.02 ) for feat1_contribution in feature_contributions[colnames["EpicName"][0]]["Contributions"]]
 	        }
 	    }
@@ -177,7 +177,7 @@ def predict(data):
 
 	    return Parcel.pack_output(
 	        mapped_predictions=formatted_predictions,  # Dictionary with display names corresponding to predictions per sample
-	        score_displayed="Death_in_30d",
+	        score_displayed="AKI",
 	        # The output key you'd like end users to look at (e.g. the positive class name)
 	        chronicles_info=chronicles_info,  # Metadata that should be passed through
 	        # This optional parameter can be configured to be displayed in hover bubbles, etc.

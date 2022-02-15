@@ -1,0 +1,13 @@
+{
+    "id": "wustl.postop_aki_test@1.2",
+    "manifest": {
+        "description": "Starting point for Cloud Services model",
+        "ondemandDefinition": {
+            "entryName": "predict",
+            "package": "src/postop_aki_test_1_2/model.py",
+            "timeout": "15m"
+        },
+        "platform": "runtimes.cognitive.epiccloud.io/epic/cognitive/release/dsrt:v3.2"
+    },
+    "name": "wustl.postop_aki_test"
+}
