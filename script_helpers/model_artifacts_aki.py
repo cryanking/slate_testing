@@ -35,7 +35,7 @@ ct = make_column_transformer(
 data_train2 = ct.fit_transform(data_train)
 pickle.dump(ct,open('/pkghome/transform.p', 'wb'))
 
-imp = IterativeImputer(max_iter=5, random_state=0)
+imp = IterativeImputer(max_iter=9, random_state=0)
 
 imp = imp.fit(data_train2)
 
@@ -47,11 +47,17 @@ data_train2 = imp.transform(data_train2 )
 
 Y = labels_train['AKI_v2']
 
+
 X_train, X_test, y_train, y_test = train_test_split(data_train2, Y, test_size=0.33, random_state=101)
+
 regressor = RandomForestClassifier(n_estimators=100, random_state=101, max_depth=5, min_samples_split=50 )
 
 X_train = X_train[np.isfinite(y_train)  ]
 y_train = y_train [np.isfinite(y_train)  ]
+
+X_test = X_test[np.isfinite(y_test)  ]
+y_test = y_test [np.isfinite(y_test)  ]
+
 
 lr_reg_model = LogisticRegression(solver='liblinear', random_state=0)
 lr_reg_model.fit(X_train, y_train)

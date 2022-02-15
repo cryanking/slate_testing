@@ -8,8 +8,7 @@ docker run --rm -it -v '/home/christopherking/gitdirs/slate_testing/script_helpe
 docker run --rm -it -v '/home/christopherking/gitdirs/slate_testing/script_helpers:/actfast_prep' -v "/home/christopherking/slate_test/resources/:/pkghome/" cryanking/torchscipy:11.1 /bin/bash -c "pip install xgboost ; python /actfast_prep/model_artifacts_aki.py"
 
 
-docker run -it --rm  -v "/home/christopherking/slate_test/:/home/eccp/" --user eccp dsrt
--slate:v2.1 /bin/bash
+docker run -it --rm  -v "/home/christopherking/slate_test/:/home/eccp/" --user eccp dsrt-slate:v2.1 /bin/bash
 
 pip install xlsx2csv
 python -c "from xlsx2csv import Xlsx2csv; Xlsx2csv('/home/eccp/resources/Test Reporting Workbench 2021-08-03b.xlsx', outputencoding='utf-8').convert('resources/new_test.csv')"

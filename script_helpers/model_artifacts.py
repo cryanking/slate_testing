@@ -53,6 +53,9 @@ regressor = RandomForestClassifier(n_estimators=100, random_state=101, max_depth
 X_train = X_train[np.isfinite(y_train)  ]
 y_train = y_train [np.isfinite(y_train)  ]
 
+X_test = X_test[np.isfinite(y_test)  ]
+y_test = y_test [np.isfinite(y_test)  ]
+
 lr_reg_model = LogisticRegression(solver='liblinear', random_state=0)
 lr_reg_model.fit(X_train, y_train)
 lr_reg_model.coef_
