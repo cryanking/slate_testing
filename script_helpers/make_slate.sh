@@ -30,7 +30,7 @@ cp /home/eccp/resources/*.p /home/eccp/postop_aki_test_1_2/resources/
 cp /home/eccp/resources/*.csv /home/eccp/postop_aki_test_1_2/resources/
 cp /home/eccp/resources/*.xgb /home/eccp/postop_aki_test_1_2/resources/
 cp /home/eccp/resources/aki_xgb.py /home/eccp/postop_aki_test_1_2/src/postop_aki_test_1_2/model.py
-cp /home/eccp/resources/definition_ark.json  /home/eccp/postop_aki_test_1_2/definition.json
+cp /home/eccp/resources/definition_aki.json  /home/eccp/postop_aki_test_1_2/definition.json
 
 dsutils make-ondemand-payload --from-RW --root-dir /home/eccp/postop_death_test_1_2/ --samples=8 --file '/home/eccp/resources/new_test.csv'
 
@@ -41,7 +41,7 @@ echo "scikit-learn==0.24.1" >> requirements.txt
 dsutils install xgboost==1.4.2 scikit-learn==0.24.1
 dsutils archive
 
-cd postop_aki_test_1_2
+cd ../postop_aki_test_1_2
 echo "xgboost==1.4.2" >> requirements.txt
 echo "scikit-learn==0.24.1" >> requirements.txt
 dsutils install xgboost==1.4.2 scikit-learn==0.24.1
