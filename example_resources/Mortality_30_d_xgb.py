@@ -130,12 +130,26 @@ def predict(data):
 
 	    raw_predictions = xgb_model.predict_proba(data_train2)[:,1]*100.
 
-	    shap_values = xgb_model.get_booster().predict(DMatrix(data_train2), pred_contribs=True)*100.
+	    shap_values = xgb_model.get_booster().predict(DMatrix(data_train2), pred_contribs=True).T*100.
+	    
+	    ## find the OHE encoded groups
+        myre = re.compile("__x\\d+_" )
+        vargroups = list(re.search(myre , val ).group(0) for val in ct.get_feature_names() if  re.search(myre, val) )
+        vargroups = list(set(vargroups ))
+	    ## collapse those groups
 
-    
+        for matchname in vargroups :
+          localset = list(i for i,val in enumerate(ct.get_feature_names() ) if re.search(matchname, val)) 
+          if len(localset) > 1:
+            shap_values[ localset[0] ] = shap_values[ localset ].sum(axis=0)
+            shap_values=np.delete(shap_values, localset[1:], axis=0)
+
+   
 	    feature_contributions = dict()
 	    for i, thisname in enumerate(colnames[["EpicName"]].to_numpy()):
-	        feature_contributions[thisname[0]] = {"Contributions":shap_values.T[i].tolist() }
+	        feature_contributions[thisname[0]] = {"Contributions":shap_values[i].tolist() }
+
+
 
 
     # This optional parameter to pack_output() can be configured to be displayed in hover bubbles, etc.
