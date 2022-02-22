@@ -28,6 +28,8 @@ from epic_lib.cloud import (
 )
 
 from epic_lib import get_logger
+import re
+
 # Any additional imports must either be in the Epic image or stored in pip_packages as part of your model
 
 """
@@ -144,6 +146,18 @@ def predict(data):
             shap_values[ localset[0] ] = shap_values[ localset ].sum(axis=0)
             shap_values=np.delete(shap_values, localset[1:], axis=0)
 
+## shap output from xgboost is on log-odds scale
+        def expit(x):
+          return(np.exp(x)/(1+np.exp(x)))
+        
+        def logit(x):
+          return(np.log(x) - np.log(1-x))
+        
+        def convert_shap_to_prob_margin(shap, prob):
+          return(prob - expit(logit(prob)-shap) )
+        
+        shap_values = convert_shap_to_prob_margin(shap_values, raw_predictions/100. )
+        
    
 	    feature_contributions = dict()
 	    for i, thisname in enumerate(colnames[["EpicName"]].to_numpy()):

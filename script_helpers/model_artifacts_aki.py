@@ -45,7 +45,7 @@ y_train = y_train [np.isfinite(y_train)  ]
 X_test = X_test[np.isfinite(y_test)  ]
 y_test = y_test [np.isfinite(y_test)  ]
 
-xgbmodel = XGBClassifier(n_estimators=5,max_depth=4, learning_rate=1, random_state=101 ,objective='binary:logistic')
+xgbmodel = XGBClassifier(n_estimators=25,max_depth=15, learning_rate=.2, random_state=101, gamma=1.5 ,objective='binary:logistic')
 
 xgbmodel.fit(X=X_train, y=y_train)
 

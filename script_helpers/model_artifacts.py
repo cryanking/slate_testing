@@ -46,13 +46,13 @@ X_test = X_test[np.isfinite(y_test)  ]
 y_test = y_test [np.isfinite(y_test)  ]
 
 
-xgbmodel = XGBClassifier(n_estimators=5,max_depth=4, learning_rate=1, random_state=101 ,objective='binary:logistic')
+xgbmodel = XGBClassifier(n_estimators=25,max_depth=15, learning_rate=.2, random_state=101, gamma=1.5 ,objective='binary:logistic')
 
 xgbmodel.fit(X=X_train, y=y_train)
 
 y_pred = xgbmodel.predict_proba(X_test)[:,1]
 print("Accuracy:",metrics.roc_auc_score(y_test, y_pred))
-xgbmodel.save_model('/pkghome//Mortality_30d_xgb.xgb')
+xgbmodel.save_model('/pkghome/Mortality_30d_xgb.xgb')
 
 imp = IterativeImputer(max_iter=5, random_state=0)
 
@@ -79,7 +79,7 @@ y_pred=lr_reg_model.predict_proba(X_train)[:,1]
 print("Accuracy:",metrics.roc_auc_score(y_train, y_pred))
 y_pred = lr_reg_model.predict_proba(X_test)[:,1]
 print("Accuracy:",metrics.roc_auc_score(y_test, y_pred))
-pickle.dump(lr_reg_model,open('/pkghome//Mortality_30d_lr.p', 'wb'))
+pickle.dump(lr_reg_model,open('/pkghome/Mortality_30d_lr.p', 'wb'))
 
 regressor = RandomForestClassifier(n_estimators=100, random_state=101, max_depth=5, min_samples_split=50 )
 regressor.fit(X_train, y_train)

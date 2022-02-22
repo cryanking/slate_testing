@@ -15,6 +15,8 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import make_column_transformer
 from sklearn.compose import make_column_selector
 
+from itertools import filterfalse
+
 import pandas as pd
 import numpy as np
 
@@ -28,6 +30,7 @@ from epic_lib.cloud import (
 )
 
 from epic_lib import get_logger
+import re
 # Any additional imports must either be in the Epic image or stored in pip_packages as part of your model
 
 """
@@ -137,6 +140,7 @@ def predict(data):
         vargroups = list(re.search(myre , val ).group(0) for val in ct.get_feature_names() if  re.search(myre, val) )
         vargroups = list(set(vargroups ))
 	    ## collapse those groups
+	    
 
         for matchname in vargroups :
           localset = list(i for i,val in enumerate(ct.get_feature_names() ) if re.search(matchname, val)) 
@@ -144,10 +148,31 @@ def predict(data):
             shap_values[ localset[0] ] = shap_values[ localset ].sum(axis=0)
             shap_values=np.delete(shap_values, localset[1:], axis=0)
 
-   
+        
+        ## shap output from xgboost is on log-odds scale
+        def expit(x):
+          return(np.exp(x)/(1+np.exp(x)))
+        
+        def logit(x):
+          return(np.log(x) - np.log(1-x))
+        
+        def convert_shap_to_prob_margin(shap, prob):
+          return(prob - expit(logit(prob)-shap) )
+        
+        shap_values = convert_shap_to_prob_margin(shap_values, raw_predictions/100. )
+        
+        ## the categorical features
 	    feature_contributions = dict()
-	    for i, thisname in enumerate(colnames[["EpicName"]].to_numpy()):
-	        feature_contributions[thisname[0]] = {"Contributions":shap_values[i].tolist() }
+	    for i, thisname in enumerate(ct.transformers_[0][2] ):
+          feature_contributions[thisname] = {"Contributions":shap_values[i].tolist() }
+	    
+	    offset = len(ct.transformers_[0][2])
+	    
+	    ## the numeric features
+	    varnames = list( filterfalse( myre.search , ct.get_feature_names())) 
+	    
+	    for i, thisname in enumerate(varnames):
+	        feature_contributions[thisname] = {"Contributions":shap_values[i+offset].tolist() }
 
 
 
