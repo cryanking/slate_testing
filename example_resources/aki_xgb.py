@@ -156,7 +156,7 @@ def predict(data):
       def convert_shap_to_prob_margin(shap, prob):
         return(prob - expit(logit(prob)-shap) )
       
-      shap_values = convert_shap_to_prob_margin(shap_values, raw_predictions/100. )
+      shap_values = convert_shap_to_prob_margin(shap_values, raw_predictions/100. )*100.
         
    
       feature_contributions = dict()

@@ -133,7 +133,7 @@ def predict(data):
 
       raw_predictions = xgb_model.predict_proba(data_train2)[:,1]*100.
 
-      shap_values = xgb_model.get_booster().predict(DMatrix(data_train2), pred_contribs=True)
+      shap_values = xgb_model.get_booster().predict(DMatrix(data_train2), pred_contribs=True).T
       
       ## find the OHE encoded groups
       myre = re.compile("__x\\d+_" )
@@ -159,7 +159,7 @@ def predict(data):
       def convert_shap_to_prob_margin(shap, prob):
         return(prob - expit(logit(prob)-shap) )
       
-      shap_values = convert_shap_to_prob_margin(shap_values, raw_predictions/100. )
+      shap_values = convert_shap_to_prob_margin(shap_values, raw_predictions/100. )*100.
       
         ## the categorical features
       feature_contributions = dict()
