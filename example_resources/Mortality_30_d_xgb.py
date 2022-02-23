@@ -209,7 +209,7 @@ def predict(data):
             # This ModelScore_DisplayName corresponds to
             # RegressionOutputOrClass1Probabilities in the return schema above
               "Death_in_30d": [str(probability) for probability in raw_predictions],
-              "OtherMetaData": [str(feat1_contribution*.02 ) for feat1_contribution in feature_contributions[colnames["EpicName"][0]]["Contributions"]]
+              #"OtherMetaData": [str(feat1_contribution*.02 ) for feat1_contribution in feature_contributions[colnames["EpicName"][0]]["Contributions"]]
           }
       }
 

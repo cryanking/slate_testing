@@ -15,6 +15,8 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import make_column_transformer
 from sklearn.compose import make_column_selector
 
+from itertools import filterfalse
+
 import pandas as pd
 import numpy as np
 
@@ -160,8 +162,17 @@ def predict(data):
         
    
       feature_contributions = dict()
-      for i, thisname in enumerate(colnames[["EpicName"]].to_numpy()):
-          feature_contributions[thisname[0]] = {"Contributions":shap_values[i].tolist() }
+      for i, thisname in enumerate(ct.transformers_[0][2] ):
+          feature_contributions[thisname] = {"Contributions":shap_values[i].tolist() }
+      
+      offset = len(ct.transformers_[0][2])
+      
+      ## the numeric features
+      varnames = list( filterfalse( myre.search , ct.get_feature_names())) 
+      
+      for i, thisname in enumerate(varnames):
+          feature_contributions[thisname] = {"Contributions":shap_values[i+offset].tolist() }
+
 
 
     # This optional parameter to pack_output() can be configured to be displayed in hover bubbles, etc.
@@ -196,7 +207,7 @@ def predict(data):
             # This ModelScore_DisplayName corresponds to
             # RegressionOutputOrClass1Probabilities in the return schema above
               "AKI": [str(probability) for probability in raw_predictions],
-              "OtherMetaData": [str(feat1_contribution*.02 ) for feat1_contribution in feature_contributions[colnames["EpicName"][0]]["Contributions"]]
+              #"OtherMetaData": [str(feat1_contribution*.02 ) for feat1_contribution in feature_contributions[colnames["EpicName"][0]]["Contributions"]]
           }
       }
 
