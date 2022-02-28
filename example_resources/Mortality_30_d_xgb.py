@@ -19,6 +19,7 @@ from itertools import filterfalse
 
 import pandas as pd
 import numpy as np
+#import json
 
 # Parcel is an Epic released packaging/formatting helper
 from parcel import Parcel
@@ -61,6 +62,14 @@ def predict(data):
     ##############################################
     ### Load other resources ###
     ##############################################
+    
+     #with open(os.path.join(os.getcwd(), "resources", 'ondemand.json' ), 'r') as file:
+       #test_data = json.load(file )
+     #test_data['Data']['EntityId'] = None
+     #test_data['Data']['PredictiveContext'] = None
+     #test_data2 = pd.DataFrame.from_dict(test_data['Data'])
+    
+    
     
       xgb_model = XGBClassifier()
       xgb_model.load_model(os.path.join(os.getcwd(), "resources", "Mortality_30d_xgb.xgb") )

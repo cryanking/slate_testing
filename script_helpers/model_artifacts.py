@@ -31,7 +31,9 @@ Y = labels_train['Mortality_30d']
 
 ct = make_column_transformer( 
      (OneHotEncoder(), make_column_selector(dtype_include=object)) ,  
-     remainder='passthrough')
+     ('passthrough', make_column_selector(dtype_include='int64')) ,  
+     ('passthrough', make_column_selector(dtype_include='float64')) ,  
+     )
 
 data_train2 = ct.fit_transform(data_train)
 pickle.dump(ct,open('/pkghome/transform.p', 'wb'))
@@ -54,43 +56,44 @@ y_pred = xgbmodel.predict_proba(X_test)[:,1]
 print("Accuracy:",metrics.roc_auc_score(y_test, y_pred))
 xgbmodel.save_model('/pkghome/Mortality_30d_xgb.xgb')
 
-imp = IterativeImputer(max_iter=5, random_state=0)
+if False:
+  imp = IterativeImputer(max_iter=5, random_state=0)
 
-imp = imp.fit(data_train2)
+  imp = imp.fit(data_train2)
 
-pickle.dump(imp,open('/pkghome/impute.p', 'wb'))
+  pickle.dump(imp,open('/pkghome/impute.p', 'wb'))
 
 
-data_train2 = imp.transform(data_train2 )
-X_train, X_test, y_train, y_test = train_test_split(data_train2, Y, test_size=0.33, random_state=101)
+  data_train2 = imp.transform(data_train2 )
+  X_train, X_test, y_train, y_test = train_test_split(data_train2, Y, test_size=0.33, random_state=101)
 
-X_train = X_train[np.isfinite(y_train)  ]
-y_train = y_train [np.isfinite(y_train)  ]
+  X_train = X_train[np.isfinite(y_train)  ]
+  y_train = y_train [np.isfinite(y_train)  ]
 
-X_test = X_test[np.isfinite(y_test)  ]
-y_test = y_test [np.isfinite(y_test)  ]
+  X_test = X_test[np.isfinite(y_test)  ]
+  y_test = y_test [np.isfinite(y_test)  ]
 
-## fit and save the sklearn method
+  ## fit and save the sklearn method
 
-lr_reg_model = LogisticRegression(solver='liblinear', random_state=0)
-lr_reg_model.fit(X_train, y_train)
-lr_reg_model.coef_
-y_pred=lr_reg_model.predict_proba(X_train)[:,1]
-print("Accuracy:",metrics.roc_auc_score(y_train, y_pred))
-y_pred = lr_reg_model.predict_proba(X_test)[:,1]
-print("Accuracy:",metrics.roc_auc_score(y_test, y_pred))
-pickle.dump(lr_reg_model,open('/pkghome/Mortality_30d_lr.p', 'wb'))
+  lr_reg_model = LogisticRegression(solver='liblinear', random_state=0)
+  lr_reg_model.fit(X_train, y_train)
+  lr_reg_model.coef_
+  y_pred=lr_reg_model.predict_proba(X_train)[:,1]
+  print("Accuracy:",metrics.roc_auc_score(y_train, y_pred))
+  y_pred = lr_reg_model.predict_proba(X_test)[:,1]
+  print("Accuracy:",metrics.roc_auc_score(y_test, y_pred))
+  pickle.dump(lr_reg_model,open('/pkghome/Mortality_30d_lr.p', 'wb'))
 
-regressor = RandomForestClassifier(n_estimators=100, random_state=101, max_depth=5, min_samples_split=50 )
-regressor.fit(X_train, y_train)
+  regressor = RandomForestClassifier(n_estimators=100, random_state=101, max_depth=5, min_samples_split=50 )
+  regressor.fit(X_train, y_train)
 
-y_pred = regressor.predict_proba(X_train)[:,1]
-print("Accuracy:",metrics.roc_auc_score(y_train, y_pred))
+  y_pred = regressor.predict_proba(X_train)[:,1]
+  print("Accuracy:",metrics.roc_auc_score(y_train, y_pred))
 
-y_pred = regressor.predict_proba(X_test)[:,1]
-print("Accuracy:",metrics.roc_auc_score(y_test, y_pred))
+  y_pred = regressor.predict_proba(X_test)[:,1]
+  print("Accuracy:",metrics.roc_auc_score(y_test, y_pred))
 
-pickle.dump(regressor,open('/pkghome/Mortality_30d_rf.p', 'wb'))
+  pickle.dump(regressor,open('/pkghome/Mortality_30d_rf.p', 'wb'))
 
 
 
