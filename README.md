@@ -20,6 +20,7 @@ Then run a python script to load the training data, create the preprocessing ste
 - - Very few python objects can be serialized in a truly "self-contained" way, for example column transformers or imputation routines. You will therefore probably have to rely on pickled objects
 - - tf.Transform allegedly allows serializing complete pipelinelines if you are willing to write it all in tensorflow and figure out the Beam and Spark dependencies. 
 - - xgboost and tensorflow support exporting classifiers to stable serialized formats. TorchScript is also a stable serialization format. Linear-type classifiers can of course be exported to a table of coefficents. sklearn-onnx will serialize many sklearn classifiers, but not the pipeline.
+- -  ExtraTreesRegressor in sklean is an imputation option that can be serialized to ONNX
 
 
 

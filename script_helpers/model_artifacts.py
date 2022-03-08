@@ -33,7 +33,7 @@ ct = make_column_transformer(
      (OneHotEncoder(), make_column_selector(dtype_include=object)) ,  
      ('passthrough', make_column_selector(dtype_include='int64')) ,  
      ('passthrough', make_column_selector(dtype_include='float64')) ,  
-     )
+     get_feature_names_out=False)
 
 data_train2 = ct.fit_transform(data_train)
 pickle.dump(ct,open('/pkghome/transform.p', 'wb'))
