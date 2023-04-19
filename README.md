@@ -3,9 +3,9 @@ This assumes you have some familiarity with docker and have a docker daemon set 
 ```
 sudo mount -t cifs -o username=christopherking,domain=accounts,rw //bjcdfs02.bjc-nt.bjc.org/Shared/HIP_Infrastructure/Innovation_Lab /mnt/temp
 ```
-and copy the Slate_v2.0 directory to a location of your choosing. Then, load the image into your docker index:
+and copy the Slate_v2.1 directory to a location of your choosing. Then, load the image into your docker index:
 ```
-docker load < dsrt-slate-v2.0.tar
+docker load < dsrt-slate-v2.1.tar
 ```
 - since I wrote this, Slate v 2.1 is available, substitute whatever version is current
 
@@ -15,7 +15,7 @@ Prepare the list of features you're going to use and the type which they have (s
 Then run a python script to load the training data, create the preprocessing steps (including imputation if you need it, detection of "bad" data) and train the classifier and regressor and save those artifacts. An example is in "script_helpers/model_artifacts.py" Save the package versions to a "requirements.txt" to install in slate, since a common problem is incompatability between the training and evaluation environment.
 
 - You can install the desired packages in slate itself and train the classifier there, but you will need to manage the versions installed in *slate's python* and the *exported archive*. Training in slate has the advantage of fixing the python version between training and evaluation.
-- I recommend using a container other than slate itself to do classifier training, because you will be able to use HPC and other environments where you might not want to or even be able to get the proprietary slate image configured.
+- I recommend using a container other than slate itself to do classifier training, because you will be able to use HPC and other environments where you might not want to or even be able to get the proprietary slate image configured, as well as not dealing with slate's users.
 - pickling python objects for the analysis workflow is mostly unavoidable, and generally ok, since you can fix the python and package versions to be the same between in training and slate.
 - - Very few python objects can be serialized in a truly "self-contained" way, for example column transformers or imputation routines. You will therefore probably have to rely on pickled objects
 - - tf.Transform allegedly allows serializing complete pipelinelines if you are willing to write it all in tensorflow and figure out the Beam and Spark dependencies. 
@@ -28,13 +28,54 @@ Then run a python script to load the training data, create the preprocessing ste
 The slate image can be activated using docker. Passing a data directory as a volume is the best way to get data "into" slate. I happen to have an "eccp" user in my system, because that is the default for slate. Doing so avoids painful file permission issues. I have a "slate_test/resources" folder which has the artifacts that I want to use in the model. For example,
 
 ```
-docker run -it --rm  -v "($pwd)/slate_test/:/home/eccp/" --user eccp dsrt-slate:v2.0 /bin/bash
+docker run -it --rm  -v "$(pwd)/slate_test/:/home/eccp/" --user eccp dsrt-slate:v2.1 /bin/bash
 ```
 
-Once in slate, initialize a project skeleton:
+Once in slate, check the python version so that your external calculations don't run into verion issues (or python 3.9+ specific behavior in this case). You may be happy with some of the installed versions, but these are very old for some. Note that if you re-use a home directory, it will have a ~/.local/lib with installs shared, which you might not want. Below has some misc system packages removed.
+```
+eccp@2eb6e7be5f65:~$ python3 -V 
+Python 3.8.5
+eccp@2eb6e7be5f65:~$ pip3 list
+Package                 Version   
+----------------------- ---------                                                                                             
+epic-dsutils            0.2.5    
+grpcio                  1.37.1   
+h5py                    2.10.0   
+Keras                   2.4.3    
+Keras-Preprocessing     1.1.2    
+lightgbm                3.0.0    
+numba                   0.53.1   
+numpy                   1.19.1   
+opt-einsum              3.3.0    
+pandas                  1.0.5    
+patsy                   0.5.1    
+scikit-learn            0.23.1   
+scipy                   1.5.0    
+shap                    0.36.0   
+simplejson              3.17.0   
+slicer                  0.0.7    
+statsmodels             0.11.1   
+tensorboard             2.5.0    
+tensorboard-data-server 0.6.1    
+tensorboard-plugin-wit  1.8.0    
+tensorflow              2.3.1    
+tensorflow-estimator    2.3.0    
+tensorflow-hub          0.8.0    
+xgboost                 1.2.1 
+```
+
+I build an image from scratch to do training in
+```
+# tag cryanking/slate_analysis:0.2
+FROM python:3.8.5
+COPY requirements_train.txt /opt/requirements_train.txt
+RUN pip install --quiet --no-cache-dir -r /opt/requirements_train.txt 
+```
+
+Initialize a project skeleton:
 
 ```
-dsutils new-project --org="wustl" --name="postop_death_test" --version=1.1 
+dsutils new-project --org="wustl" --name="postop_icu_indicator" --version=1.0
 ```
 Note that version MUST be integer major.minor. The org must be wustl. The name must match the name in epic. You can change these in the definition.json file. The skeleton will contain a definition.json, but it will need to be edited (or preferably overwritten)
 
