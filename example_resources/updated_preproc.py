@@ -2,6 +2,11 @@
 
 import os
 import pickle
+import sys
+## for testing in slate only
+## sys.path.append('/home/eccp/epic_extract')
+from parcel import Parcel
+from parcel import converters
 
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import make_column_transformer
@@ -17,13 +22,18 @@ import gensim
 
 import re
 
-## map discrete lab values to factor index
-with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
-  lab_trans = json.load(f)
-  
-## map from clarity names to epic names
-with open(os.path.join(os.getcwd(), "resources", 'clarity_epic_map.json') ) as f:
-  name_map = json.load(f)
+## for testing only
+if False:
+  testload = json.load(open("resources/ondemand.json"))
+
+  ## map discrete lab values to factor index
+  with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
+    lab_trans = json.load(f)
+    
+  ## map from clarity names to epic names
+  with open(os.path.join(os.getcwd(), "resources", 'rwb_map.csv') ) as f:
+    colnames = pd.read_csv(f,low_memory=False)
+  name_map = colnames[["RWBFeature","ClarityFeature"]].set_index('RWBFeature')['ClarityFeature'].to_dict()
 
 
 ## generated helper functions from GPT
@@ -53,29 +63,28 @@ def only_numbers(x):
     else:
         raise ValueError("Unsupported input type")
 
+def make_constants(x):
+  x["case_year"] = 2021
+  x["HCG,URINE, POC"] = 0
+
 def apply_dict_mapping(x, mapping, default=None):
     """
     Applies a fixed dictionary mapping to an input.
-
     Parameters:
         x (pandas.Series, numpy.ndarray, or scalar): The input to map.
         mapping (dict): The dictionary mapping to apply.
         default: (optional) The default value to use for keys not in the mapping.
-
     Returns:
         pandas.Series, numpy.ndarray, or scalar: The mapped output.
     """
-
     if isinstance(x, pd.Series):
         # If x is a Pandas Series, use the map() method to apply the mapping
         return x.map(mapping).fillna(default)
-
     elif isinstance(x, np.ndarray):
         # If x is a NumPy array, use the vectorized version of the mapping
         # TODO: I think there are more efficent ways to do this, but also don't care that much because I expect that I will always convert to pandas first
         mapping_func = np.vectorize(mapping.get)
         return np.where(np.isin(x, mapping), mapping_func(x), default)
-
     else:
         # If x is a scalar, apply the mapping directly
         return mapping.get(x, default)
@@ -90,7 +99,7 @@ def extract_group(input_obj, group=1):
       match = re.search(tempre, x)
       if match:
         return int(match.group(group)[:2])*60 + int(match.group(group)[2:])
-      else
+      else:
         return np.nan
       
     if isinstance(input_obj, pd.Series):
@@ -167,15 +176,39 @@ nan_to_zero = (
 ,'coombs'
 )
 
+## suspect this is broke
+def cancerdeetst(col):
+  patterns = {"metastatic cancer":"4",  "current cancer":"3" , "in remission":"2", "s/p radiation":"2", "s/p chemo":"2", "skin cancer only":"1"  }
+  if isinstance(col, pd.Series):
+    for pattern in patterns.keys():
+      col[ col.str.contains(pattern) ] = patterns[pattern]
+    col[ ~col.isin(patterns.values()) ] = "-1"
+    col = pd.to_numeric(col, errors='coerce').astype(int)
+    return col
+  elif isinstance(col, np.ndarray):
+    for pattern in patterns.keys():
+      col = np.where( np.char.contains(col, pattern), patterns[pattern], col )
+    col = np.where( np.isin(col, patterns.values()), col, "-1" )
+    col = col.astype(int)
+    return col
+  else: 
+    for pattern in patterns.keys():
+      if re.search(pattern, col):
+        return int(patterns[pattern])
+    return -1
 
+#lambda x: x==""
+     #temp = x>=1
+     #temp = temp.astype(int) # to allow nan
+     #temp[x<=0] = np.nan
+     #return temp
 transformation_dict = {
-  "Weight in Ounces": lambda x: x*.02835 
-  , "TropI": lambda x :x*.001 
+    "TropI": lambda x :x*.001 
   , "Emergent": lambda x: x=="E"
-  , "Race": lambda x: apply_dict_mapping(x, {1:0, 2:1, 19:-1}, -1 )
+  , "Race": lambda x: apply_dict_mapping(x, {"1":0, "2":1, "19":-1}, -1 )
   , "Ethnicity": lambda x: apply_dict_mapping(x, {8:1 , 9:0, 12:-1}, -1 )
-  , "plannedDispo": lambda x: apply_dict_mapping(x, {"ER":1,"Outpatient":1,"23 hour admit":2, "Floor":2,"Obs. unit":3,"ICU":4} , np.nan )
-  , "Service": lambda x: apply_dict_mapping(x, {
+  , "dispo": lambda x: apply_dict_mapping(x.str.lower(), {"er":1,"outpatient":1,"23 hour admit":2, "floor":2,"obs. unit":3,"icu":4} , np.nan )
+  , "Service": lambda x: apply_dict_mapping(x, { 
       'Acute Critical Care Surgery':1,'General Surgery':1,'Trauma':1,
       'Cardiothoracic' : 2 ,
       'Colorectal' : 3 ,
@@ -194,40 +227,39 @@ transformation_dict = {
       'Vascular' : 16 
       } , 0 )
   , "Last Tobac Use Status": lambda x: apply_dict_mapping(x, {3:-1, 1:2 , 4:1 , 2:0 }, -1 )
-  , "cancerdeets" : lambda col: 
-        patterns = {"metastatic cancer":"4",  "current cancer":"3" , "in remission":"2", "s/p radiation":"2", "s/p chemo":"2", "skin cancer only":"1"  }
-        if isinstance(col, pd.Series):
-          for pattern in patterns.keys():
-            col[ col.str.contains(pattern) ] = patterns[pattern]
-          col[ ~col.isin(patterns.values()) ] = "-1"
-          col = pd.to_numeric(col, errors='coerce').astype(int)
-          return col
-        elif isinstance(col, np.ndarray):
-          for pattern in patterns.keys():
-            col = np.where( np.char.contains(col, pattern), patterns[pattern], col )
-          col = np.where( np.isin(col, patterns.values()), col, "-1" )
-          col = col.astype(int)
-          return col
-        else 
-          for pattern in patterns.keys():
-            if re.search(pattern, col):
-              return int(patterns[pattern])
-          return -1
+  , "tobacco_sde": lambda x: x.fillna(0)
+  , "cancerdeets" : cancerdeetst 
   , "Diastolic": lambda x: apply_dict_mapping(x, {0:0, 1:1, 2:2,3:3, 888:1, 999:1  }, np.nan )
   , "Pain Score":  only_numbers
-  , "CAM": lambda x: 
-     temp = x>=1
-     temp = temp.astype(int) # to allow nan
-     temp[x<=0] = np.nan
-     return temp
-  , "mental_status": lambda x: x > 0
-  
+  , "on_o2_sde_new": lambda x: x.isin(["0", "nan"])
+  , "CAM": lambda x: np.where( (x>=1), 1, np.where(x==0, np.nan, 0) )
+  , "orientation": lambda x: pd.DataFrame([
+      x.str.lower().str.contains("x4") *4
+      , x.str.lower().str.contains("x3")*3
+      , x.str.lower().str.contains("x2")*2
+      , x.str.lower().str.contains("x1")*1
+      , x.str.lower().str.contains("person") + x.str.lower().str.contains("place") + x.str.lower().str.contains("time")+ x.str.lower().str.contains("situation")
+    ]).max(axis=0)
+    , "AN Start": lambda x: x/60
+    , "activeInfection" : lambda x : ~pd.isnan(x)
+    , "ad8" : lambda x :  (x>0).fillna(False) 
+    , "Barthel" : lambda x : (x<100).fillna(False) 
+    , "DementiaCogIm" : lambda x : (x>0).fillna(False)
+    , "fall" : lambda x : (x>0).fillna(False)
+    , "Mental Status" : lambda x : (x>0).fillna(False)
+    , "DyspneaF" : lambda x : x=="NEVER"
+    , "pastDialysis" : pd.isnull
+    
 }
 
-
-
+# suspect incorrect data feed
+# bactur claritryur colorur Coombs_Lab covidrna epiur  glucoseur hepb hepc hivlab magnesium  urmucus urprot
+#fev1percent 
+# gait has a factor map?
+# hyalineur urleuk works, needs factors (e.g. 7)
+# TODO: resume review at sbt
 multi_trans_dict = {
-  "AN Type": lambda col:
+  "AnesthesiaType": lambda col:
     if isinstance(col, pd.Series):
       plannedAnesthesia = col.str.contains("general")
       hasBlock = col.str.contains("|".join(["regional", "shot", "block", "epidural"]))
@@ -260,7 +292,9 @@ multi_trans_dict = {
 set_trans_array = (
   [["DVT", "PE"], lambda data: pd.DataFrame(data["DVT"] | data["PE"]).rename(columns={0:"DVT_PE"})  ]
   , [["Coombs", "Coombs_SDE"] , lambda data: pd.DataFrame(data["Coombs"] | data["Coombs_SDE"]).rename(columns={0:"Coombs"})  ]
+  , [["emergency_b" , "Emergent" ], lambda data: pd.DataFrame(data["emergency_b"] | data["Emergent"]).rename(columns={0:"emergency"})  ] 
   )
+
 
 ## assumes a pandas series
 def lab_processing(AW_labs):
@@ -291,54 +325,57 @@ def lab_processing(AW_labs):
   AW_labs = np.select(conditions, choices, default=AW_labs)
 
 
-def make_wv_hx(data)
 
-
-def do_maps(data):
+#Cardiac Rhythm 
+#CHF_class
+#DHF
+#Ethnicity
+#
+def do_maps(raw_data):
   ## fixed transformations, usually mappings
   for target in transformation_dict.keys():
-    if target in data.columns:
-      data[target] = transformation_dict[target](data[target])
+    if target in raw_data.columns:
+      raw_data[target] = transformation_dict[target](raw_data[target])
   ## variables with -1 as a wrapper for null
   for target in negative_1_impute:
-    if target in data.columns:
-      data[target] = replace_m1_with_nan(data[target])
+    if target in raw_data.columns:
+      raw_data[target] = replace_m1_with_nan(raw_data[target])
   ## generate expected columns
   for target in multi_trans_dict.keys():
-    if target in data.columns:
-      data = pd.concat([data] + lab_trans[target](data[target]) , axis=1)
+    if target in raw_data.columns:
+      raw_data = pd.concat([raw_data] + lab_trans[target](raw_data[target]) , axis=1)
   ## remap names so that I can apply the existing lab transformations
-  data.rename(columns=name_map)
+  raw_data.rename(columns=name_map)
   ## some semi-qualitative labs
   for target in lab_list:
-    if target in data.columns:
-      data[target] = lab_processing(data[target])
+    if target in raw_data.columns:
+      raw_data[target] = lab_processing(raw_data[target])
   ## quantitative labs to their anticipated integer index
   for target in lab_trans.keys():
-    if target in data.columns:
-      data[target] = lab_trans[target](data[target])  
+    if target in raw_data.columns:
+      raw_data[target] = lab_trans[target](raw_data[target])  
   ## some transformations that use > 1 variable
   for vset, fun in set_trans_array:
-    if set(vset) <= set(data.columns):
-      data = pd.concat(data.rename( columns={v:v+"old" for v in vset}), fun(data[vset] ) )
-  return data
+    if set(vset) <= set(raw_data.columns):
+      raw_data = pd.concat(raw_data.rename( columns={v:v+"old" for v in vset}), fun(raw_data[vset] ) )
+  return raw_data
 
 def predict(data):
  
     logger = get_logger()
     try:
     # ordered_columns simply lists the feature names, and the type they should be cast to.
-    # The type can be a string or numpy dtype.
-    # In this example, they're hardcoded, but could easily be read from disk, or derived.
+    # this is all the "simple" features
     #ordered_columns = [("Feature1", "int"), ("Feature2", "float")]
-      colnames = pd.read_csv(os.path.join(os.getcwd(), "resources", 'colname_data.csv' ),low_memory=False )
+      colnames = pd.read_csv(os.path.join(os.getcwd(), "resources", 'rwb_map.csv' ),low_memory=False )
       icmconv = converters.InterconnectMissingValueConverter()
-      used_cols = list(map(tuple, colnames[["EpicName"]].to_numpy()))
-      ordered_columns = list(map(tuple, colnames[["EpicName","dtype"]].to_numpy()))
+      used_cols = list(map(tuple, colnames[["RWBFeature"]].to_numpy()))
+      ordered_columns = list(map(tuple, colnames[["RWBFeature","dtype"]].to_numpy()))
       if "modelInput" in data:
         data = data.get("modelInput")
     # unpack_input() separates metadata (chronicles_info) from the dataframe of features
-      dataframe, chronicles_info = Parcel.unpack_input( data, ordered_columns, dict(zip(used_cols, [icmconv]*len(used_cols))))
+      pred_data_pre, chronicles_info = Parcel.unpack_input( data, ordered_columns, dict(zip(used_cols, [icmconv]*len(used_cols))))
+      
     
     ##############################################
     ### Load other resources ###
