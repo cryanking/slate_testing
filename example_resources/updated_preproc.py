@@ -1,5 +1,12 @@
 ## this file contains transformation functions which map epic data from the back-end representation to the processed representation from clarity.
 
+## 2c. import list of cols actually used, or add a drop column to mapping (which is almost the same as equality of names)
+## 2d. there are category columns ... need to somehow import the identity /ActFastData/Epic_TS_Prototyping/preops_metadata.json after re-running sandhya's preproc -> also solves above
+## 3. numeric coerce based on above
+## 4. Import easiest  procedure model
+
+
+
 import os
 import pickle
 import sys
@@ -18,7 +25,6 @@ import pandas as pd
 import numpy as np
 import json
 
-import gensim
 
 import re
 
@@ -67,7 +73,7 @@ def make_constants(x):
   x["case_year"] = 2021
   x["HCG,URINE, POC"] = 0
 
-def apply_dict_mapping(x, mapping, default=None):
+def apply_dict_mapping(x, mapping, default=np.nan):
     """
     Applies a fixed dictionary mapping to an input.
     Parameters:
@@ -89,28 +95,6 @@ def apply_dict_mapping(x, mapping, default=None):
         # If x is a scalar, apply the mapping directly
         return mapping.get(x, default)
 
-def extract_group(input_obj, group=1):
-    """Extracts a regular expression group from input_obj using pattern and group number.
-    input_obj can be a pandas series, a numpy array, or a string.
-    Returns a pandas series with the extracted group or None if no match found.
-    """
-    tempre = re.compile("([0-9]+): Anesthesia Start")
-    def first_group (x):
-      match = re.search(tempre, x)
-      if match:
-        return int(match.group(group)[:2])*60 + int(match.group(group)[2:])
-      else:
-        return np.nan
-      
-    if isinstance(input_obj, pd.Series):
-        temp = input_obj.str.extract(tempre, expand=False)
-        return pd.to_numeric(temp.str[:2], errors='coerce') * 60 + pd.to_numeric(temp.str[2:], errors='coerce')
-    elif isinstance(input_obj, np.ndarray):
-        return np.vectorize(first_group)(input_obj) # surprisingly, there is no built in vectorized regex
-    elif isinstance(input_obj, str):
-        return first_group(input_obj)
-    return None
-  
   
 ## this set of variables should all have -1 replaced with NaN
 negative_1_impute = [
@@ -174,6 +158,12 @@ nan_to_zero = (
 'hasBlock'
 ,'emergency'
 ,'coombs'
+, "sbt"
+, "Diastolic"
+,"fall"
+, "NoCHF"
+, "NoROS"
+,"NutritionRisk"
 )
 
 ## suspect this is broke
@@ -197,18 +187,47 @@ def cancerdeetst(col):
         return int(patterns[pattern])
     return -1
 
-#lambda x: x==""
-     #temp = x>=1
-     #temp = temp.astype(int) # to allow nan
-     #temp[x<=0] = np.nan
-     #return temp
+
+
+
+
+## Service is a double mapping because the variable representation changed, and it was easier than redoing it
+
 transformation_dict = {
-    "TropI": lambda x :x*.001 
+    "TropI": lambda x :np.where( (x>0), x*.001 ,x)
   , "Emergent": lambda x: x=="E"
   , "Race": lambda x: apply_dict_mapping(x, {"1":0, "2":1, "19":-1}, -1 )
+  , "gait": lambda x: apply_dict_mapping(x, {"0":1, "10":2, "20":3}, -1 )
   , "Ethnicity": lambda x: apply_dict_mapping(x, {8:1 , 9:0, 12:-1}, -1 )
   , "dispo": lambda x: apply_dict_mapping(x.str.lower(), {"er":1,"outpatient":1,"23 hour admit":2, "floor":2,"obs. unit":3,"icu":4} , np.nan )
-  , "Service": lambda x: apply_dict_mapping(x, { 
+  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x,  {'5' : 'Acute Critical Care Surgery' , 
+      '10' : 'Anesthesiology' , 
+      '40' : 'Cardiothoracic' , 
+      '50' : 'Cardiovascular' , 
+      '55' : 'Colorectal' , 
+      '100' : 'Gastroenterology' , 
+      '110' : 'General' , 
+      '120' : 'General Surgery' , 
+      '165' : 'Hepatobiliary' , 
+      '185' : 'Minimally Invasive Surgery' , 
+      '187' : 'Minor Procedures' , 
+      '200' : 'Obstetrics / Gynecology' , 
+      '230' : 'Ophthalmology' , 
+      '230' : 'Ophthalmology' , 
+      '250' : 'Orthopaedics' , 
+      '255' : 'Otolaryngology' , 
+      '340' : 'Plastics' , 
+      '360' : 'Pulmonary' , 
+      '390' : 'Transplant' , 
+      '400' : 'Trauma' , 
+      '410' : 'Urology' , 
+      '420' : 'Vascular' , 
+      '440' : 'Dental' , 
+      '450' : 'Pain Management' , 
+      '666' : 'Neurosurgery' , 
+      'NaN' : 'Unknown' , 
+      '480' : 'Orthopaedic Spine' ,
+      '190' : 'Plastics' }, 'Unknown' ) , { 
       'Acute Critical Care Surgery':1,'General Surgery':1,'Trauma':1,
       'Cardiothoracic' : 2 ,
       'Colorectal' : 3 ,
@@ -231,75 +250,92 @@ transformation_dict = {
   , "cancerdeets" : cancerdeetst 
   , "Diastolic": lambda x: apply_dict_mapping(x, {0:0, 1:1, 2:2,3:3, 888:1, 999:1  }, np.nan )
   , "Pain Score":  only_numbers
-  , "on_o2_sde_new": lambda x: x.isin(["0", "nan"])
+  , "ono2_sde_new": lambda x: x.isin(["0", "nan"])
   , "CAM": lambda x: np.where( (x>=1), 1, np.where(x==0, np.nan, 0) )
   , "orientation": lambda x: pd.DataFrame([
       x.str.lower().str.contains("x4") *4
       , x.str.lower().str.contains("x3")*3
       , x.str.lower().str.contains("x2")*2
       , x.str.lower().str.contains("x1")*1
-      , x.str.lower().str.contains("person") + x.str.lower().str.contains("place") + x.str.lower().str.contains("time")+ x.str.lower().str.contains("situation")
+      , x.str.lower().str.contains("person")..astype(int) + x.str.lower().str.contains("place")..astype(int) + x.str.lower().str.contains("time")..astype(int)+ x.str.lower().str.contains("situation")..astype(int)
     ]).max(axis=0)
-    , "AN Start": lambda x: x/60
-    , "activeInfection" : lambda x : ~pd.isnan(x)
+    , "An Start": lambda x: x/60.
+    , "activeInfection" : lambda x : ~pd.isnull(x)
     , "ad8" : lambda x :  (x>0).fillna(False) 
     , "Barthel" : lambda x : (x<100).fillna(False) 
-    , "DementiaCogIm" : lambda x : (x>0).fillna(False)
+    , "DementiaCogIm" : lambda x: x.isin(["0", "nan"])
     , "fall" : lambda x : (x>0).fillna(False)
     , "Mental Status" : lambda x : (x>0).fillna(False)
     , "DyspneaF" : lambda x : x=="NEVER"
-    , "pastDialysis" : pd.isnull
-    
+    , "pastDialysis" : lambda x : ~pd.isnull(x)
+    , "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
+    , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", np.nan])
 }
 
 # suspect incorrect data feed
-# bactur claritryur colorur Coombs_Lab covidrna epiur  glucoseur hepb hepc hivlab magnesium  urmucus urprot
-#fev1percent 
-# gait has a factor map?
-# hyalineur urleuk works, needs factors (e.g. 7)
-# TODO: resume review at sbt
+# fev1percent -> does not exist (added), magnesium -> added
+# Coombs_Lab urnitr colorur covidrna hepb hepc hivlab  urmucus claritryur -> new extension
+# wheezing -> all zero (it's just rare)
+# icu_request -> added
+# gait has a factor map? -> yes, transformed to ints, which was probably a mistake 
+# bactur hyalineur urleuk glucoseur epiur urketone urprot -> fixed (change to string) ; this is not exactly the same (it converts thing leading with numbers to that number and otherwise to 0)
+# 
+
+def genanest(col):
+  if isinstance(col, pd.Series):
+    plannedAnesthesia = col.str.lower().str.contains("general")
+    hasBlock = col.lower().str.contains("|".join(["regional", "shot", "block", "epidural"]))
+    return pd.DataFrame({'PlannedAnesthesia': plannedAnesthesia, 'hasBlock': hasBlock}) 
+  elif isinstance(col, np.ndarray):
+    plannedAnesthesia = np.char.contains(col, "general")
+    hasBlock = np.char.contains(col, "|".join(["regional", "shot", "block", "epidural"]))
+  else :
+    plannedAnesthesia = re.search("general", col)
+    hasBlock = any(re.search(s, col) for s in ["regional", "shot", "block", "epidural"])
+  return [plannedAnesthesia , hasBlock ]  
+
+def mentaltrans(col):
+  if isinstance(col, pd.Series):
+    MentalHistory_anxiety= col.str.lower().str.contains("anxiety")
+    MentalHistory_bipolar= col.str.lower().str.contains("bipol")
+    MentalHistory_depression= col.str.lower().str.contains("depr")
+    MentalHistory_schizophrenia= col.str.lower().str.contains("schiz")
+    return pd.DataFrame({'MentalHistory_anxiety': MentalHistory_anxiety, 'MentalHistory_bipolar': MentalHistory_bipolar , "MentalHistory_depression":MentalHistory_depression, "MentalHistory_schizophrenia":MentalHistory_schizophrenia })
+  elif isinstance(col, np.ndarray):
+    MentalHistory_anxiety= np.char.contains(col, "anxiety")
+    MentalHistory_bipolar= np.char.contains(col, "bipol")
+    MentalHistory_depression= np.char.contains(col, "depr")
+    MentalHistory_schizophrenia= np.char.contains(col, "schiz")
+  else :
+    MentalHistory_anxiety = re.search("anxiety", col)
+    MentalHistory_bipolar = re.search("bipol", col)
+    MentalHistory_depression = re.search("depr", col)
+    MentalHistory_schizophrenia = re.search("schiz", col)
+  return[ MentalHistory_anxiety,MentalHistory_bipolar, MentalHistory_depression, MentalHistory_schizophrenia ]
+
 multi_trans_dict = {
-  "AnesthesiaType": lambda col:
-    if isinstance(col, pd.Series):
-      plannedAnesthesia = col.str.contains("general")
-      hasBlock = col.str.contains("|".join(["regional", "shot", "block", "epidural"]))
-    elif isinstance(col, np.ndarray):
-      plannedAnesthesia = np.char.contains(col, "general")
-      hasBlock = np.char.contains(col, "|".join(["regional", "shot", "block", "epidural"]))
-    else 
-      plannedAnesthesia = re.search("general", col)
-      hasBlock = any(re.search(s, col) for s in ["regional", "shot", "block", "epidural"])
-    return [plannedAnesthesia , hasBlock ]   
-  , "mentalhx" : lambda col:
-    if isinstance(col, pd.Series):
-      MentalHistory_anxiety= col.str.contains("anxiety")
-      MentalHistory_bipolar= col.str.contains("bipol")
-      MentalHistory_depression= col.str.contains("depr")
-      MentalHistory_schizophrenia= col.str.contains("schiz")
-    elif isinstance(col, np.ndarray):
-      MentalHistory_anxiety= np.char.contains(col, "anxiety")
-      MentalHistory_bipolar= np.char.contains(col, "bipol")
-      MentalHistory_depression= np.char.contains(col, "depr")
-      MentalHistory_schizophrenia= np.char.contains(col, "schiz")
-    else 
-      MentalHistory_anxiety = re.search("anxiety", col)
-      MentalHistory_bipolar = re.search("bipol", col)
-      MentalHistory_depression = re.search("depr", col)
-      MentalHistory_schizophrenia = re.search("schiz", col)
-    return[ MentalHistory_anxiety,MentalHistory_bipolar, MentalHistory_depression, MentalHistory_schizophrenia ]
+  "AN Type": genanest
+  , "mentalhx" : mentaltrans
 }
 
 set_trans_array = (
   [["DVT", "PE"], lambda data: pd.DataFrame(data["DVT"] | data["PE"]).rename(columns={0:"DVT_PE"})  ]
   , [["Coombs", "Coombs_SDE"] , lambda data: pd.DataFrame(data["Coombs"] | data["Coombs_SDE"]).rename(columns={0:"Coombs"})  ]
   , [["emergency_b" , "Emergent" ], lambda data: pd.DataFrame(data["emergency_b"] | data["Emergent"]).rename(columns={0:"emergency"})  ] 
+  , [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( (data["tobacco_sde"] >0) | (data["Last Tobac Use Status"] >1) ).rename(columns={0:"TOBACCO_USE"})  ] 
+  , [["ono2_sde_new" , "ono2" , "Resp. Support"], lambda data: pd.DataFrame( (data["Resp. Support"] ) | (data["ono2"] > 0) | (data["ono2_sde_new"]) ).rename(columns={0:"on_o2"})  ] 
   )
 
 
+
+
+
 ## assumes a pandas series
+## weird 0.1 0.3 etc in maps are because the orginal mapping contains values which are replaced by the below to the same value, the intermediate as.list and write_json method create these "off" keys, but since they  all map to the same value it doesn't matter
 def lab_processing(AW_labs):
   AW_labs = AW_labs.str.lower()
-
+  AW_labs = AW_labs.str.replace("<","")
+  AW_labs = AW_labs.str.replace(">","")
   AW_labs.loc[AW_labs.str.contains('not', na = False)] = '0'
   AW_labs.loc[AW_labs.str.contains('none', na = False)] = '0'
   AW_labs.loc[AW_labs.str.contains('undetected', na = False)] = '0'
@@ -307,7 +343,6 @@ def lab_processing(AW_labs):
   AW_labs.loc[AW_labs.str.contains(r'\w{3,}\spositive', na = False, regex=True)] = "1"
   AW_labs.loc[AW_labs.str.contains(r'negative\s\w{3,}', na = False, regex=True)] = "0"
   AW_labs.loc[AW_labs.str.contains(r'positive\s\w{3,}', na = False, regex=True)] = "1"
-
   conditions = [
       AW_labs.eq("negative"),
       AW_labs.eq("trace"),
@@ -323,14 +358,11 @@ def lab_processing(AW_labs):
   ]
   choices = ['0', '0', '1', '1', '1', '1', '1', '1', '1', '1', '1']
   AW_labs = np.select(conditions, choices, default=AW_labs)
+  return AW_labs
 
 
+#subset = {key: lab_trans.get(key) for key in set(raw_data.columns).intersection( set(lab_trans.keys()) ) }
 
-#Cardiac Rhythm 
-#CHF_class
-#DHF
-#Ethnicity
-#
 def do_maps(raw_data):
   ## fixed transformations, usually mappings
   for target in transformation_dict.keys():
@@ -343,21 +375,19 @@ def do_maps(raw_data):
   ## generate expected columns
   for target in multi_trans_dict.keys():
     if target in raw_data.columns:
-      raw_data = pd.concat([raw_data] + lab_trans[target](raw_data[target]) , axis=1)
-  ## remap names so that I can apply the existing lab transformations
-  raw_data.rename(columns=name_map)
-  ## some semi-qualitative labs
-  for target in lab_list:
-    if target in raw_data.columns:
-      raw_data[target] = lab_processing(raw_data[target])
-  ## quantitative labs to their anticipated integer index
-  for target in lab_trans.keys():
-    if target in raw_data.columns:
-      raw_data[target] = lab_trans[target](raw_data[target])  
+      raw_data = pd.concat([raw_data] + [multi_trans_dict[target](raw_data[target])] , axis=1)
   ## some transformations that use > 1 variable
   for vset, fun in set_trans_array:
     if set(vset) <= set(raw_data.columns):
       raw_data = pd.concat(raw_data.rename( columns={v:v+"old" for v in vset}), fun(raw_data[vset] ) )
+  ## remap names so that I can apply the existing lab transformations
+  raw_data.rename(columns=name_map, inplace=True)
+  ## TODO: note that this preserves nan! The source data has na's, and a consistent treatment has to match whatever the other did
+  for target in lab_trans.keys():
+    if target in raw_data.columns:
+      raw_data[target] = pd.Series(lab_processing(raw_data[target])).replace( lab_trans[target] )
+
+  make_constants(raw_data)
   return raw_data
 
 def predict(data):
@@ -554,3 +584,27 @@ def predict(data):
     except ValueError as error:
        return(f"raising an exception and the error was {error}.")
 # log.exception(f"raising an exception and the error was {error}.")
+
+## this is currently unused (was designed for extracting event times from a text column that isn't working)
+def extract_group(input_obj, group=1):
+    """Extracts a regular expression group from input_obj using pattern and group number.
+    input_obj can be a pandas series, a numpy array, or a string.
+    Returns a pandas series with the extracted group or None if no match found.
+    """
+    tempre = re.compile("([0-9]+): Anesthesia Start")
+    def first_group (x):
+      match = re.search(tempre, x)
+      if match:
+        return int(match.group(group)[:2])*60 + int(match.group(group)[2:])
+      else:
+        return np.nan
+      
+    if isinstance(input_obj, pd.Series):
+        temp = input_obj.str.extract(tempre, expand=False)
+        return pd.to_numeric(temp.str[:2], errors='coerce') * 60 + pd.to_numeric(temp.str[2:], errors='coerce')
+    elif isinstance(input_obj, np.ndarray):
+        return np.vectorize(first_group)(input_obj) # surprisingly, there is no built in vectorized regex
+    elif isinstance(input_obj, str):
+        return first_group(input_obj)
+    return None
+  
