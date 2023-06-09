@@ -11,7 +11,7 @@ import os
 import pickle
 import sys
 ## for testing in slate only
-## sys.path.append('/home/eccp/epic_extract')
+#sys.path.append('/home/eccp/epic_extract')
 from parcel import Parcel
 from parcel import converters
 
@@ -24,23 +24,32 @@ from itertools import filterfalse
 import pandas as pd
 import numpy as np
 import json
+import math
 
 
 import re
 
 ## for testing only
-if False:
-  testload = json.load(open("resources/ondemand.json"))
+if True:
+  data = json.load(open("resources/ondemand.json"))
+  
+  
 
-  ## map discrete lab values to factor index
-  with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
-    lab_trans = json.load(f)
-    
-  ## map from clarity names to epic names
-  with open(os.path.join(os.getcwd(), "resources", 'rwb_map.csv') ) as f:
-    colnames = pd.read_csv(f,low_memory=False)
-  name_map = colnames[["RWBFeature","ClarityFeature"]].set_index('RWBFeature')['ClarityFeature'].to_dict()
 
+## NOTE: this function does not use in-place modification. It wasn't performance critical. For larger datasets, that might be necessary
+def normalization(data0, mode, normalizing_value, contin_var):
+    data = data0.copy()
+    if mode == 'mean_std':
+        mean = normalizing_value['mean']
+        std = normalizing_value['std']
+        data[contin_var] = data[contin_var] - mean
+        data[contin_var] = data[contin_var] / std
+    if mode == 'min_max':
+        min_v = normalizing_value['min']
+        max_v = normalizing_value['max']
+        data[contin_var] = data[contin_var] - min_v
+        data[contin_var] = data[contin_var] / max_v
+    return data
 
 ## generated helper functions from GPT
 ## many paf are defined to return -1 to protect against the dumb CCP behavior of always nulling if any inputs are null
@@ -72,6 +81,18 @@ def only_numbers(x):
 def make_constants(x):
   x["case_year"] = 2021
   x["HCG,URINE, POC"] = 0
+  x['URINE UROBILINOGEN'] = 1.0
+  x['opioids_count'] = 0
+  x['total_morphine_equivalent_dose'] = 0
+  x['preop_los'] = 0.1
+  x['delirium_history']= 0
+  x['MentalHistory_other'] = 0
+  x['MentalHistory_adhd'] = 0
+  x['MRN_encoded'] = 0
+  x["PNA"] =0
+  x["delirium_history"] =0
+  x["StartTime"] =0
+  
 
 def apply_dict_mapping(x, mapping, default=np.nan):
     """
@@ -95,7 +116,7 @@ def apply_dict_mapping(x, mapping, default=np.nan):
         # If x is a scalar, apply the mapping directly
         return mapping.get(x, default)
 
-  
+
 ## this set of variables should all have -1 replaced with NaN
 negative_1_impute = [
 "Height in Inches" ,
@@ -199,7 +220,7 @@ transformation_dict = {
   , "Race": lambda x: apply_dict_mapping(x, {"1":0, "2":1, "19":-1}, -1 )
   , "gait": lambda x: apply_dict_mapping(x, {"0":1, "10":2, "20":3}, -1 )
   , "Ethnicity": lambda x: apply_dict_mapping(x, {8:1 , 9:0, 12:-1}, -1 )
-  , "dispo": lambda x: apply_dict_mapping(x.str.lower(), {"er":1,"outpatient":1,"23 hour admit":2, "floor":2,"obs. unit":3,"icu":4} , np.nan )
+  #, "dispo": lambda x: apply_dict_mapping(x.str.lower(), {"er":1,"outpatient":1,"23 hour admit":2, "floor":2,"obs. unit":3,"icu":4} , np.nan )
   , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x,  {'5' : 'Acute Critical Care Surgery' , 
       '10' : 'Anesthesiology' , 
       '40' : 'Cardiothoracic' , 
@@ -257,7 +278,7 @@ transformation_dict = {
       , x.str.lower().str.contains("x3")*3
       , x.str.lower().str.contains("x2")*2
       , x.str.lower().str.contains("x1")*1
-      , x.str.lower().str.contains("person")..astype(int) + x.str.lower().str.contains("place")..astype(int) + x.str.lower().str.contains("time")..astype(int)+ x.str.lower().str.contains("situation")..astype(int)
+      , x.str.lower().str.contains("person").astype(int) + x.str.lower().str.contains("place").astype(int) + x.str.lower().str.contains("time").astype(int)+ x.str.lower().str.contains("situation").astype(int)
     ]).max(axis=0)
     , "An Start": lambda x: x/60.
     , "activeInfection" : lambda x : ~pd.isnull(x)
@@ -265,7 +286,7 @@ transformation_dict = {
     , "Barthel" : lambda x : (x<100).fillna(False) 
     , "DementiaCogIm" : lambda x: x.isin(["0", "nan"])
     , "fall" : lambda x : (x>0).fillna(False)
-    , "Mental Status" : lambda x : (x>0).fillna(False)
+    #, "Mental Status" : lambda x : (x>0).fillna(False)
     , "DyspneaF" : lambda x : x=="NEVER"
     , "pastDialysis" : lambda x : ~pd.isnull(x)
     , "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
@@ -284,7 +305,7 @@ transformation_dict = {
 def genanest(col):
   if isinstance(col, pd.Series):
     plannedAnesthesia = col.str.lower().str.contains("general")
-    hasBlock = col.lower().str.contains("|".join(["regional", "shot", "block", "epidural"]))
+    hasBlock = col.str.lower().str.contains("|".join(["regional", "shot", "block", "epidural"]))
     return pd.DataFrame({'PlannedAnesthesia': plannedAnesthesia, 'hasBlock': hasBlock}) 
   elif isinstance(col, np.ndarray):
     plannedAnesthesia = np.char.contains(col, "general")
@@ -319,11 +340,11 @@ multi_trans_dict = {
 }
 
 set_trans_array = (
-  [["DVT", "PE"], lambda data: pd.DataFrame(data["DVT"] | data["PE"]).rename(columns={0:"DVT_PE"})  ]
-  , [["Coombs", "Coombs_SDE"] , lambda data: pd.DataFrame(data["Coombs"] | data["Coombs_SDE"]).rename(columns={0:"Coombs"})  ]
-  , [["emergency_b" , "Emergent" ], lambda data: pd.DataFrame(data["emergency_b"] | data["Emergent"]).rename(columns={0:"emergency"})  ] 
+  [["DVT", "PE"], lambda data: pd.DataFrame((data["DVT"] + data["PE"]) >0 ).rename(columns={0:"DVT_PE"})  ]
+  , [["Coombs_Lab", "Coombs_SDE"] , lambda data: pd.DataFrame((data["Coombs_Lab"].isin(["Positive"])) | (data["Coombs_SDE"] == "1") ).rename(columns={0:"Coombs"})  ]
+  , [["emergency_b" , "Emergent" ], lambda data: pd.DataFrame((data["emergency_b"] > 0) | data["Emergent"]).rename(columns={0:"emergency"})  ] 
   , [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( (data["tobacco_sde"] >0) | (data["Last Tobac Use Status"] >1) ).rename(columns={0:"TOBACCO_USE"})  ] 
-  , [["ono2_sde_new" , "ono2" , "Resp. Support"], lambda data: pd.DataFrame( (data["Resp. Support"] ) | (data["ono2"] > 0) | (data["ono2_sde_new"]) ).rename(columns={0:"on_o2"})  ] 
+  , [["ono2_sde_new" , "ono2" , "Resp. Support"], lambda data: pd.DataFrame( (data["Resp. Support"] ) | (data["ono2"].astype(float) > 0) | (data["ono2_sde_new"]) ).rename(columns={0:"on_o2"})  ] 
   )
 
 
@@ -333,31 +354,34 @@ set_trans_array = (
 ## assumes a pandas series
 ## weird 0.1 0.3 etc in maps are because the orginal mapping contains values which are replaced by the below to the same value, the intermediate as.list and write_json method create these "off" keys, but since they  all map to the same value it doesn't matter
 def lab_processing(AW_labs):
-  AW_labs = AW_labs.str.lower()
-  AW_labs = AW_labs.str.replace("<","")
-  AW_labs = AW_labs.str.replace(">","")
-  AW_labs.loc[AW_labs.str.contains('not', na = False)] = '0'
-  AW_labs.loc[AW_labs.str.contains('none', na = False)] = '0'
-  AW_labs.loc[AW_labs.str.contains('undetected', na = False)] = '0'
-  AW_labs.loc[AW_labs.str.contains(r'\w{3,}\snegative', na = False, regex=True)] = "0"
-  AW_labs.loc[AW_labs.str.contains(r'\w{3,}\spositive', na = False, regex=True)] = "1"
-  AW_labs.loc[AW_labs.str.contains(r'negative\s\w{3,}', na = False, regex=True)] = "0"
-  AW_labs.loc[AW_labs.str.contains(r'positive\s\w{3,}', na = False, regex=True)] = "1"
-  conditions = [
-      AW_labs.eq("negative"),
-      AW_labs.eq("trace"),
-      AW_labs.eq("positive"),
-      AW_labs.eq('presumptive'),
-      AW_labs.eq("presumptive positive"),
-      AW_labs.eq("detected"),
-      AW_labs.eq("reactive"),
-      AW_labs.eq("repeatedly reactive"),
-      AW_labs.isin(["1+", "2+", "3+", "4+"]),
-      AW_labs.isin(["small", "moderate"]),
-      AW_labs.eq('large')
-  ]
-  choices = ['0', '0', '1', '1', '1', '1', '1', '1', '1', '1', '1']
-  AW_labs = np.select(conditions, choices, default=AW_labs)
+  if( pd.api.types.is_string_dtype(AW_labs.dtype)):
+    AW_labs = AW_labs.str.lower()
+    AW_labs = AW_labs.str.replace("<","")
+    AW_labs = AW_labs.str.replace(">","")
+    AW_labs.loc[AW_labs.str.contains('not', na = False)] = '0'
+    AW_labs.loc[AW_labs.str.contains('none', na = False)] = '0'
+    AW_labs.loc[AW_labs.str.contains('undetected', na = False)] = '0'
+    AW_labs.loc[AW_labs.str.contains(r'\w{3,}\snegative', na = False, regex=True)] = "0"
+    AW_labs.loc[AW_labs.str.contains(r'\w{3,}\spositive', na = False, regex=True)] = "1"
+    AW_labs.loc[AW_labs.str.contains(r'negative\s\w{3,}', na = False, regex=True)] = "0"
+    AW_labs.loc[AW_labs.str.contains(r'positive\s\w{3,}', na = False, regex=True)] = "1"
+    AW_labs.loc[AW_labs.str.contains(r'nonreactive', na = False, regex=True)] = "0"
+    AW_labs.loc[AW_labs.eq("nan")]= "0"
+    conditions = [
+        AW_labs.eq("negative"),
+        AW_labs.eq("trace"),
+        AW_labs.eq("positive"),
+        AW_labs.eq('presumptive'),
+        AW_labs.eq("presumptive positive"),
+        AW_labs.eq("detected"),
+        AW_labs.eq("reactive"),
+        AW_labs.eq("repeatedly reactive"),
+        AW_labs.isin(["1+", "2+", "3+", "4+"]),
+        AW_labs.isin(["small", "moderate"]),
+        AW_labs.eq('large')
+    ]
+    choices = ['0', '0', '1', '1', '1', '1', '1', '1', '1', '1', '1']
+    AW_labs = np.select(conditions, choices, default=AW_labs)
   return AW_labs
 
 
@@ -379,16 +403,96 @@ def do_maps(raw_data):
   ## some transformations that use > 1 variable
   for vset, fun in set_trans_array:
     if set(vset) <= set(raw_data.columns):
-      raw_data = pd.concat(raw_data.rename( columns={v:v+"old" for v in vset}), fun(raw_data[vset] ) )
+      raw_data = pd.concat([raw_data.rename( columns={v:v+"old" for v in vset}), fun(raw_data[vset] )] , axis=1)
   ## remap names so that I can apply the existing lab transformations
   raw_data.rename(columns=name_map, inplace=True)
   ## TODO: note that this preserves nan! The source data has na's, and a consistent treatment has to match whatever the other did
   for target in lab_trans.keys():
     if target in raw_data.columns:
       raw_data[target] = pd.Series(lab_processing(raw_data[target])).replace( lab_trans[target] )
-
   make_constants(raw_data)
   return raw_data
+
+def preprocess_inference(preops, metadata):
+    preops.reset_index(drop=True, inplace=True)
+    # reassigning to make sure that the train and test data have the same type of variables
+    continuous_variables = metadata['norm_value_cont']['cont_names']
+    ordinal_variables = metadata['norm_value_ord']['ord_names']
+    encoded_variables = metadata["encoded_var"] 
+    binary_variables = metadata["binary_var_name"] 
+    categorical_variables = metadata["categorical_name"] 
+    ordinal_variables = metadata["ordinal_variables"] 
+    continuous_variables = metadata["continuous_variables"] 
+    
+    for i in binary_variables:
+      preops[i].fillna(0, inplace=True)
+    
+    # this is kind of hardcoded; check your data beforehand for this; fixed this
+    # this is done because there were two values for missing token (nan and -inf)
+    # TODO: try the isfinite function defined above
+    # this section creates NaNs only to be filled in later. it harmonizes the different kinds of not-a-number representations
+    temp_list = [i for i in preops['PlannedAnesthesia'].unique() if np.isnan(i)] + [i for i in preops['PlannedAnesthesia'].unique() if math.isinf(i)]
+    if temp_list !=[]:
+        preops['PlannedAnesthesia'].replace(temp_list, np.NaN, inplace=True)  
+    
+    if 'plannedDispo' in preops.columns:
+        preops['plannedDispo'].replace('', np.NaN, inplace=True)
+        
+    for a in preops.columns:
+        if preops[a].dtype == 'bool':
+            preops[a] = preops[a].astype('int32')
+        if preops[a].dtype == 'int32':
+            if (a in categorical_variables) and (a not in ordinal_variables):
+                preops[a] = pd.Series(pd.Categorical( preops[a], categories= metadata['levels'][a] , ordered=False) )
+        
+    # one hot encoding
+    # this is reverse from how I would have thought about it. It starts with the list of target columns, gets the value associated with that name, then scans for values matching the target
+    # i probably would have used pd.get_dummies, concat, drop cols not present in the original, add constant 0 cols that are missing. I think this works as-is
+    preops_ohe = preops.copy()
+    encoded_var = metadata['encoded_var']
+    for ev in encoded_var:
+        preops_ohe[ev] = 0
+        ev_name = ev.rsplit("_", 1)[0]
+        ev_value = ev.rsplit("_", 1)[1]
+        # print(ev, ev_name, ev_value)
+        if ev_value != 'nan':
+            if len(preops[ev_name].unique()) < 2:
+                dtype_check = preops[ev_name].unique()[0]
+            else:
+                dtype_check = preops[ev_name].unique()[1]
+            if type(dtype_check) == np.float64 or type(dtype_check) == np.int64:
+                preops_ohe[ev] = np.where(preops_ohe[ev_name].astype('float') == float(ev_value), 1, 0)
+            elif type(dtype_check) == bool:
+                preops_ohe[ev] = np.where(preops[ev_name].astype('str') == ev_value, 1, 0)
+            else:
+                preops_ohe[ev] = np.where(preops_ohe[ev_name] == ev_value, 1, 0)
+    # this for loop checks if the categorical variable doesn't have 1 in any non-NAN value column and then assigns 1 in the nan value column
+    # this is done because the type of nans in python are complicated and different columns had different type of nans
+    for i in categorical_variables:
+        name = str(i) + "_nan"
+        lst = [col for col in encoded_var if (i == col.rsplit("_", 1)[0]) and (col != name)]
+        preops_ohe['temp_col'] = preops_ohe[lst].sum(axis=1)
+        preops_ohe[name] = np.where(preops_ohe['temp_col'] == 1, 0, 1)
+        preops_ohe.drop(columns=['temp_col'], inplace=True)
+    preops_ohe.drop(columns=categorical_variables, inplace=True)
+    # mean imputing and scaling the continuous variables
+    preops_ohe[continuous_variables].fillna(dict(zip(metadata['norm_value_cont']['cont_names'], metadata["train_mean_cont"])), inplace= True)  ## warning about copy
+    # this is done because nan that are of float type is not recognised as missing by above commands
+    for i in continuous_variables:
+        if preops_ohe[i].isna().any() == True:
+            preops_ohe[i].replace(preops_ohe[i].unique().min(), dict(zip(metadata['norm_value_cont']['cont_names'], metadata["train_mean_cont"]))[i], inplace=True)
+    preops_ohe = normalization(preops_ohe, 'mean_std', metadata['norm_value_cont'], continuous_variables)
+    # median Imputing_ordinal variables
+    # imputing
+    for i in ordinal_variables:
+        preops_ohe.loc[:,i] = pd.to_numeric(preops_ohe[i] , errors='coerce').fillna( dict(zip(metadata['norm_value_ord']['ord_names'], metadata["train_median_ord"]))[i]) 
+        #replace(preops_ohe[i].unique().min(), dict(zip(metadata['norm_value_ord']['ord_names'], metadata["train_median_ord"]))[i], inplace=True) # min because nan is treated as min
+    # normalization
+    preops_ohe = normalization(preops_ohe, 'mean_std', metadata['norm_value_ord'] , ordinal_variables)
+    preops_ohe = preops_ohe.reindex(metadata["column_all_names"], axis=1)
+    return preops_ohe
+
+
 
 def predict(data):
  
@@ -397,7 +501,20 @@ def predict(data):
     # ordered_columns simply lists the feature names, and the type they should be cast to.
     # this is all the "simple" features
     #ordered_columns = [("Feature1", "int"), ("Feature2", "float")]
-      colnames = pd.read_csv(os.path.join(os.getcwd(), "resources", 'rwb_map.csv' ),low_memory=False )
+  ## map discrete lab values to factor index
+    if True:  
+      with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
+        lab_trans = json.load(f)
+      with open(os.path.join(os.getcwd(), "resources", 'preops_metadata.json') ) as f:
+        preops_meta = json.load(f)
+      ## map from clarity names to epic names
+      with open(os.path.join(os.getcwd(), "resources", 'rwb_map.csv') ) as f:
+        colnames = pd.read_csv(f,low_memory=False)
+      # This feature is a problem, drop it for now
+      lab_trans["URINE UROBILINOGEN"] = None
+      colnames = colnames.loc[~(colnames.ClarityFeature == "URINE UROBILINOGEN")]
+      name_map = colnames[["RWBFeature","ClarityFeature"]].set_index('RWBFeature')['ClarityFeature'].to_dict()
+      #colnames = pd.read_csv(os.path.join(os.getcwd(), "resources", 'rwb_map.csv' ),low_memory=False )
       icmconv = converters.InterconnectMissingValueConverter()
       used_cols = list(map(tuple, colnames[["RWBFeature"]].to_numpy()))
       ordered_columns = list(map(tuple, colnames[["RWBFeature","dtype"]].to_numpy()))
@@ -405,7 +522,21 @@ def predict(data):
         data = data.get("modelInput")
     # unpack_input() separates metadata (chronicles_info) from the dataframe of features
       pred_data_pre, chronicles_info = Parcel.unpack_input( data, ordered_columns, dict(zip(used_cols, [icmconv]*len(used_cols))))
+      ## occasionally, a column is all absent on a batch, which the above function will set to NaN and float type, even if it should be a string.
+      for target in ordered_columns:
+        if target[0] in pred_data_pre.columns:
+          if (target[1] == 'str'):
+            pred_data_pre.loc[:,pred_data_pre.columns == target[0]] = pred_data_pre[target[0]].astype('str')
+      ## this block re-creates the processing to get to the same format as the raw training data
+      pred_data_pre = do_maps(pred_data_pre)
+      pred_data_pre.rename(columns={"DVTold":"DVT", "PEold":"PE"} , inplace=True)
+      ## this applies the pre-processing used by the classifier (OHE, column selection, normalization)
+      ## it so happens that at this time there is only 1 element in the processed data
+      preop_data = preprocess_inference(pred_data_pre, preops_meta)
       
+      
+      
+      ## Drop from training: PNA
     
     ##############################################
     ### Load other resources ###
