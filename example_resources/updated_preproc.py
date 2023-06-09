@@ -286,8 +286,8 @@ transformation_dict = {
     , "Barthel" : lambda x : (x<100).fillna(False) 
     , "DementiaCogIm" : lambda x: x.isin(["0", "nan"])
     , "fall" : lambda x : (x>0).fillna(False)
-    #, "Mental Status" : lambda x : (x>0).fillna(False)
-    , "DyspneaF" : lambda x : x=="NEVER"
+    #, "Mental Status" : lambda x : (x>0).fillna(False) # np.select(conditions, choices, default=AW_labs)
+    , "DyspneaF" : lambda x : np.select( [x.str.lower.contains("never"), x.str.lower.contains("or less") , x.str.lower.contains("not dail"), x.str.lower.contains("daily"), x.str.lower.contains("throughout") ] , [np.broadcast_to(0, x.shape), np.broadcast_to(1, x.shape), np.broadcast_to(2, x.shape), np.broadcast_to(3, x.shape), np.broadcast_to(4, x.shape) ] )  #
     , "pastDialysis" : lambda x : ~pd.isnull(x)
     , "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
     , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", np.nan])
