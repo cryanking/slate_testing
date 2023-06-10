@@ -648,87 +648,13 @@ def predict(data):
     ##############################################
     raw_predictions = xgb_model.predict_proba(preop_data)
 
-    
-      bad_holder = dataframe['AnesthesiaType'] == '0'
-      dataframe = dataframe[dataframe['AnesthesiaType'] != '0' ]
-      dataframe.replace(to_replace=-1, value=np.nan, inplace=True)
-
-    ## transform some special missing data
-      dataframe.replace(to_replace="-1", value=np.nan, inplace=True)
 
 
-      raw_predictions = xgb_model.predict_proba(data_train2)[:,1]*100.
-
-      shap_values = xgb_model.get_booster().predict(DMatrix(data_train2), pred_contribs=True).T
-      
-      ## find the OHE encoded groups
-      myre = re.compile("__x\\d+_" )
-      vargroups = list(re.search(myre , val ).group(0) for val in ct.get_feature_names() if  re.search(myre, val) )
-      vargroups = list(set(vargroups ))
-      ## collapse those groups
-      
-
-      for matchname in vargroups :
-        localset = list(i for i,val in enumerate(ct.get_feature_names() ) if re.search(matchname, val)) 
-        if len(localset) > 1:
-          shap_values[ localset[0] ] = shap_values[ localset ].sum(axis=0)
-          shap_values=np.delete(shap_values, localset[1:], axis=0)
-
-      
-      ## shap output from xgboost is on log-odds scale
-      def expit(x):
-        return(np.exp(x)/(1+np.exp(x)))
-      
-      def logit(x):
-        return(np.log(x) - np.log(1-x))
-      
-      def convert_shap_to_prob_margin(shap, prob):
-        return(prob - expit(logit(prob)-shap) )
-      
-      shap_values = convert_shap_to_prob_margin(shap_values, raw_predictions/100. )*100.
-      
-        ## the categorical features
-      feature_contributions = dict()
-      for i, thisname in enumerate(ct.transformers_[0][2] ):
-          feature_contributions[thisname] = {"Contributions":shap_values[i].tolist() }
-      
-      offset = len(ct.transformers_[0][2])
-      
-      ## the numeric features
-      varnames = list( filterfalse( myre.search , ct.get_feature_names())) 
-      
-      for i, thisname in enumerate(varnames):
-          feature_contributions[thisname] = {"Contributions":shap_values[i+offset].tolist() }
-
-
-
-
-    # This optional parameter to pack_output() can be configured to be displayed in hover bubbles, etc.
-    #feature_contributions = {
-        ## each entry of these lists corresponds to the contribution of that feature to
-        ## each sample/patient (e.g. 0.2 is the contribution of Feature1 to the second sample)
-        #"Feature1": {
-            #"Contributions": [0.34, 0.2]
-        #},
-        #"Feature2": {
-            #"Contributions": [0.56, 0.8]
-        #},
-        #"NewFeature": {
-            #"Contributions": [0.10, 0.0]
-        #}
-    #}
-
-    # This optional parameter to pack_output() allows you to include additional features only calculated in python
       added_features = {
           "NewFeature": {
               "Values": ["John Doe"]
           }
       }
-    # Though multiple keys are allowed within the "Outputs" node, the one that you'd like to
-    # display (e.g. the score, or probability of the positive class) is specified by the
-    # the score_displayed parameter in Parcel.pack_output().
-    #
-    # Note that the key specified in score_displayed is what end users will read.
       formatted_predictions = {
           "Classification1":  # this level corresponds to the Classification1 in the return schema shown above
           {
@@ -746,8 +672,6 @@ def predict(data):
           # The output key you'd like end users to look at (e.g. the positive class name)
           chronicles_info=chronicles_info,  # Metadata that should be passed through
           # This optional parameter can be configured to be displayed in hover bubbles, etc.
-          feature_contributions=feature_contributions
-          #, additional_features=added_features
       )
 
     except ValueError as error:
