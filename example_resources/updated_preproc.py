@@ -140,20 +140,23 @@ def only_numbers(x):
         raise ValueError("Unsupported input type")
 
 def make_constants(x):
-  x["case_year"] = 2021
-  x["HCG,URINE, POC"] = 0
-  x['URINE UROBILINOGEN'] = 1.0
-  x['opioids_count'] = 0
-  x['total_morphine_equivalent_dose'] = 0
-  x['preop_los'] = 0.1
-  x['delirium_history']= 0
-  x['MentalHistory_other'] = 0
-  x['MentalHistory_adhd'] = 0
-  x['MRN_encoded'] = 0
-  x["PNA"] =0
-  x["delirium_history"] =0
-  x["StartTime"] =0
-  
+  if(~any(x.columns == 'case_year' ) ) :
+    x["case_year"] = 2021
+  #x["HCG,URINE, POC"] = 0
+  #x['URINE UROBILINOGEN'] = 1.0
+  #x['opioids_count'] = 0
+  #x['total_morphine_equivalent_dose'] = 0
+  #x['preop_los'] = 0.1
+  if(~any(x.columns == 'preop_vent_b' ) ) :
+    x['preop_vent_b'] = False
+  #x['delirium_history']= 0
+  #x['MentalHistory_other'] = 0
+  #x['MentalHistory_adhd'] = 0
+  #x['MRN_encoded'] = 0
+  #x["PNA"] =0
+  #x["delirium_history"] =0
+  #x["StartTime"] =0
+
 
 def apply_dict_mapping(x, mapping, default=np.nan):
     """
@@ -236,6 +239,7 @@ negative_1_impute = [
 "LVEF"
 ]
 
+## TODO: check that these names are still good
 nan_to_zero = (
 'hasBlock'
 ,'emergency'
@@ -348,7 +352,17 @@ transformation_dict = {
     , "DementiaCogIm" : lambda x: x.isin(["0", "nan"])
     , "fall" : lambda x : (x>0).fillna(False)
     #, "Mental Status" : lambda x : (x>0).fillna(False) # np.select(conditions, choices, default=AW_labs)
-    , "DyspneaF" : lambda x : np.select( [x.str.lower.contains("never"), x.str.lower.contains("or less") , x.str.lower.contains("not dail"), x.str.lower.contains("daily"), x.str.lower.contains("throughout") ] , [np.broadcast_to(0, x.shape), np.broadcast_to(1, x.shape), np.broadcast_to(2, x.shape), np.broadcast_to(3, x.shape), np.broadcast_to(4, x.shape) ] )  #
+    , "DyspneaF" : lambda x : np.select( [
+      x.str.lower().str.contains("never"), 
+      x.str.lower().str.contains("or less") , 
+      x.str.lower().str.contains("not dail"),
+      x.str.lower().str.contains("daily"),
+      x.str.lower().str.contains("throughout") ] , [
+      np.broadcast_to(0, x.shape), 
+      np.broadcast_to(1, x.shape), 
+      np.broadcast_to(2, x.shape), 
+      np.broadcast_to(3, x.shape), 
+      np.broadcast_to(4, x.shape) ] )  #
     , "pastDialysis" : lambda x : ~pd.isnull(x)
     , "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
     , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", np.nan])
@@ -478,41 +492,42 @@ def do_maps(raw_data,name_map, lab_trans):
 def preprocess_inference(preops, metadata):
     preops.reset_index(drop=True, inplace=True)
     # reassigning to make sure that the train and test data have the same type of variables
-    continuous_variables = metadata['norm_value_cont']['cont_names']
-    ordinal_variables = metadata['norm_value_ord']['ord_names']
+    #continuous_variables = metadata['norm_value_cont']['cont_names']
+    #ordinal_variables = metadata['norm_value_ord']['ord_names']
     encoded_variables = metadata["encoded_var"] 
     binary_variables = metadata["binary_var_name"] 
     categorical_variables = metadata["categorical_name"] 
     ordinal_variables = metadata["ordinal_variables"] 
     continuous_variables = metadata["continuous_variables"] 
     
+    preops_ohe = preops.copy()[ set(binary_variables + categorical_variables + ordinal_variables + continuous_variables) ]
+    
     for i in binary_variables:
-      preops[i].fillna(0, inplace=True)
+      preops_ohe[i].fillna(0, inplace=True)
     
     # this is kind of hardcoded; check your data beforehand for this; fixed this
     # this is done because there were two values for missing token (nan and -inf)
     # TODO: try the isfinite function defined above
     # this section creates NaNs only to be filled in later. it harmonizes the different kinds of not-a-number representations
-    temp_list = [i for i in preops['PlannedAnesthesia'].unique() if np.isnan(i)] + [i for i in preops['PlannedAnesthesia'].unique() if math.isinf(i)]
+    temp_list = [i for i in preops_ohe['PlannedAnesthesia'].unique() if np.isnan(i)] + [i for i in preops_ohe['PlannedAnesthesia'].unique() if math.isinf(i)]
     if temp_list !=[]:
-        preops['PlannedAnesthesia'].replace(temp_list, np.NaN, inplace=True)  
+        preops_ohe['PlannedAnesthesia'].replace(temp_list, np.NaN, inplace=True)  
     
-    if 'plannedDispo' in preops.columns:
-        preops['plannedDispo'].replace('', np.NaN, inplace=True)
+    if 'plannedDispo' in preops_ohe.columns:
+        preops_ohe['plannedDispo'].replace('', np.NaN, inplace=True)
         
     for name in categorical_variables:
-      preops[name] = preops[name].astype('category')
-    for a in preops.columns:
-        if preops[a].dtype == 'bool':
-            preops[a] = preops[a].astype('int32')
-        if preops[a].dtype == 'int32':
+      preops_ohe[name] = preops_ohe[name].astype('category')
+    for a in preops_ohe.columns:
+        if preops_ohe[a].dtype == 'bool':
+            preops_ohe[a] = preops_ohe[a].astype('int32')
+        if preops_ohe[a].dtype == 'int32':
             if (a in categorical_variables) and (a not in ordinal_variables):
-                preops[a] = pd.Series(pd.Categorical( preops[a], categories= metadata['levels'][a] , ordered=False) )
+                preops_ohe[a] = pd.Series(pd.Categorical( preops_ohe[a], categories= metadata['levels'][a] , ordered=False) )
         
     # one hot encoding
     # this is reverse from how I would have thought about it. It starts with the list of target columns, gets the value associated with that name, then scans for values matching the target
     # i probably would have used pd.get_dummies, concat, drop cols not present in the original, add constant 0 cols that are missing. I think this works as-is
-    preops_ohe = preops.copy()
     encoded_var = metadata['encoded_var']
     for ev in encoded_var:
         preops_ohe[ev] = 0
@@ -578,7 +593,6 @@ def predict(data):
         colnames = pd.read_csv(f,low_memory=False)
       # This feature is a problem, drop it for now
       #lab_trans["URINE UROBILINOGEN"] = None 
-      colnames = colnames.loc[~(colnames.ClarityFeature == "URINE UROBILINOGEN")]
       name_map = colnames[["RWBFeature","ClarityFeature"]].set_index('RWBFeature')['ClarityFeature'].to_dict()
       #colnames = pd.read_csv(os.path.join(os.getcwd(), "resources", 'rwb_map.csv' ),low_memory=False )
       icmconv = converters.InterconnectMissingValueConverter()
@@ -594,7 +608,7 @@ def predict(data):
           if (target[1] == 'str'):
             pred_data_pre.loc[:,pred_data_pre.columns == target[0]] = pred_data_pre[target[0]].astype('str')
       ## this block re-creates the processing to get to the same format as the raw training data
-      pred_data_pre = do_maps(pred_data_pre)
+      pred_data_pre = do_maps(pred_data_pre, name_map, lab_trans)
       ## split off the procedure text
       embedded_proc = text_to_cbow(pred_data_pre["procedureText"], cbow_map)
       ## these are in the old meta
@@ -603,7 +617,6 @@ def predict(data):
       ## it so happens that at this time there is only 1 element in the processed data
       preop_data = preprocess_inference(pred_data_pre, preops_meta)
       
-      preop_data = meta_coerce(preop_data )
       
       
       

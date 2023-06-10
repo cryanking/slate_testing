@@ -2,13 +2,13 @@ ClarityFeature,RWBFeature,dtype,MV Feature,MV Lab
 ABORH PAT INTERP,Blood Type,str,,ABO_AND_RHO[D]_TYPING_P3-20220
 ACTIVATED PARTIAL THROMBOPLASTIN TIME,aPTT,float,Partial_Thromboplastin_Time,PARTIAL_THROMBOPLASTIN_TIME_[PTT]_ACTIVATED_P3-10590
 activeInfection,activeInfection,str,,
-AD8 Dementia Score,ad8,float,,
+AD8,ad8,float,,
 AF,Afib,float,AFIB,
 age,Age (Years),float,Age,
 ALANINE AMINOTRANSFERASE,ALT,float,ALT,
 ALBUMIN,Albumin,float,Albumin,ALBUMIN_MEASUREMENT_P3-71260
 ALKALINE PHOSPHATASE,AlkPhos,float,Alkaline_Phosphate,ALKALINE_PHOSPHATASE_MEASUREMENT_UNITS/L_P3-G8644Y
-Ambulatory Aids,ambulatory,float,,
+Ambulatory,ambulatory,float,,
 Anemia,Anemia,float,ANEMIA,
 AR,AR,float,VALVULAR_DISEASE,
 AS,AoStenosis,float,VALVULAR_DISEASE,
@@ -16,7 +16,7 @@ ASA,ASA,float,ASA,
 ASPARTATE AMINOTRANSFERASE,ast,float,,ASPARTATE_AMINOTRANSFERASE_[AST/SGOT]_MEASUREMENT_UNITS/L_P3-G8648Y
 Asthma,Asthma,float,ASTHMA,
 "BACTERIA, URINE",bactur,str,,BACTERIA_URINE_QUALITATIVE_P3-G5100Y
-Barthel index score,Barthel,float,,BASOPHIL_COUNT_[ABSOLUTE]_P3-3058CY
+Barthel,Barthel,float,,BASOPHIL_COUNT_[ABSOLUTE]_P3-3058CY
 BASOPHIL ABSOLUTE,basos,float,,BILIRUBIN_MEASUREMENT_DIRECT_P3-72150
 "BILIRUBIN, DIRECT",bilidir,float,,BILIRUBIN_MEASUREMENT_TOTAL_P3-72140
 "BILIRUBIN, TOTAL",Bilirubin,float,,
@@ -61,7 +61,7 @@ FERRITIN,ferritin,float,,FERRITIN_MEASUREMENT_P3-72790
 FEV1Percent,fev1percent,float,,
 "FIBRINOGEN, CLAUSS",Fibrinogen,float,,FIBRINOGEN_NOS_P3-10720
 FunctionalCapacity,METs,float,FUNCTIONAL_CAPACITY,
-Gait/Transferring,gait,float,,
+gait,gait,float,,
 GERD,GERD,float,GERD,
 GLUCOSE,Glucose,float,Glucose,GLUCOSE_MEASUREMENT_SERUM_P3-72942
 "GLUCOSE, URINE, QUALITATIVE",glucoseur,str,,GLUCOSE_URINE_QUALITATIVE_P3-90100
@@ -71,7 +71,7 @@ HEMATOCRIT,Hematocrit,float,Hematocrit,HEMATOCRIT_[HCT]_DETERMINATION_P3-34080
 HEMOGLOBIN,hemoglobin,float,,HEMOGLOBIN_[HGB]_ESTIMATION_TOTAL_VENOUS_BLOOD_P3-G0053Y
 HEMOGLOBIN A1C,Last HbA1c Value,float,,HEMOGLOBIN_A1C_MEASUREMENT_P3-72982
 HEPATITIS C AB,hepc,str,,HEPATITIS_C_[HCV]_ANTIBODY_MEASUREMENT_P3-64056
-History of Falling,fall,float,,
+fall_history,fall,float,,
 HIV 1/2 AB + P24 AG,hivlab,str,,
 HTN,HTN,float,HTN,
 HYALINE CAST,hyalineur,str,,HYALINE_CASTS_URINE_P3-90018Y
@@ -139,7 +139,7 @@ SBP,Systolic BP,float,PreOp_Systolic,
 Secondary Diagnosis,secondary_diag,float,,
 Seizures,seizures,float,,
 Sex,Patient Sex ID,float,SEX,
-Short Blessed Total Score,sbt,float,,
+SBT,sbt,float,,
 SO2 (MEAS) ARTERIAL,so2,float,,OXYGEN_[O2]_SATURATION_MEASUREMENT_ARTERIAL_BLOOD_P3-73640
 SODIUM,Sodium,float,Sodium,SODIUM_MEASUREMENT_P3-74020
 "SPECIFIC GRAVITY, URINE",urspecgrav,float,,SPECIFIC_GRAVITY_MEASUREMENT_URINE_P3-90240
