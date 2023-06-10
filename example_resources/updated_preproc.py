@@ -142,7 +142,9 @@ def only_numbers(x):
 def make_constants(x):
   if(~any(x.columns == 'case_year' ) ) :
     x["case_year"] = 2021
-  #x["HCG,URINE, POC"] = 0
+  if(~any(x.columns == 'HCG,URINE, POC' ) ) :
+    x["HCG,URINE, POC"] = 0
+    #x["HCG,URINE, POC"] = 0
   #x['URINE UROBILINOGEN'] = 1.0
   #x['opioids_count'] = 0
   #x['total_morphine_equivalent_dose'] = 0
@@ -337,7 +339,7 @@ transformation_dict = {
   , "Diastolic": lambda x: apply_dict_mapping(x, {0:0, 1:1, 2:2,3:3, 888:1, 999:1  }, np.nan )
   , "Pain Score":  only_numbers
   , "ono2_sde_new": lambda x: x.isin(["0", "nan"])
-  , "CAM": lambda x: np.where( (x>=1), 1, np.where(x==0, np.nan, 0) )
+  , "CAM": lambda x: np.where( (x>=1), "True", np.where(x==0, "nan", "False") )
   , "orientation": lambda x: pd.DataFrame([
       x.str.lower().str.contains("x4") *4
       , x.str.lower().str.contains("x3")*3
@@ -347,11 +349,12 @@ transformation_dict = {
     ]).max(axis=0)
     , "An Start": lambda x: x/60.
     , "activeInfection" : lambda x : ~pd.isnull(x)
-    , "ad8" : lambda x :  (x>0).fillna(False) 
+    , "ad8" : lambda x : (x==0).fillna(False).astype(str)
     , "Barthel" : lambda x : (x<100).fillna(False) 
     , "DementiaCogIm" : lambda x: x.isin(["0", "nan"])
-    , "fall" : lambda x : (x>0).fillna(False)
-    #, "Mental Status" : lambda x : (x>0).fillna(False) # np.select(conditions, choices, default=AW_labs)
+    , "ambulatory" : lambda x: (x==0).astype(str)
+    , "fall" : lambda x: (x==0).fillna(False).astype(str)
+    , "Mental Status" : lambda x: (x==0).fillna(False).astype(str) 
     , "DyspneaF" : lambda x : np.select( [
       x.str.lower().str.contains("never"), 
       x.str.lower().str.contains("or less") , 
@@ -367,6 +370,8 @@ transformation_dict = {
     , "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
     , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", np.nan])
 }
+
+
 
 # suspect incorrect data feed
 # fev1percent -> does not exist (added), magnesium -> added
@@ -533,7 +538,6 @@ def preprocess_inference(preops, metadata):
         preops_ohe[ev] = 0
         ev_name = ev.rsplit("_", 1)[0]
         ev_value = ev.rsplit("_", 1)[1]
-        # print(ev, ev_name, ev_value)
         if ev_value != 'nan':
             if len(preops[ev_name].unique()) < 2:
                 dtype_check = preops[ev_name].unique()[0]
