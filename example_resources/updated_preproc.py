@@ -25,6 +25,7 @@ import pandas as pd
 import numpy as np
 import json
 import math
+from itertools import repeat
 
 
 import re
@@ -34,6 +35,66 @@ if True:
   data = json.load(open("resources/ondemand.json"))
   
   
+
+def text_fixed_trans(text):
+    if text is None:
+      return None
+    if isinstance(text, pd.Series):
+      text = text.str.lower() 
+      text = text.str.replace(r"[^a-z0-9]", " " ,regex=True) ## non word characters
+      text = text.str.replace(r"\bunos\b", " ",regex=True) ## transplant id
+      text = text.str.replace(r"\ba[a-z]{2,3}[0-9]{3,4}\b", " ",regex=True) ## transplant id
+      text = text.str.replace(r"\bmoma", " ",regex=True) ## transplant id
+      text = text.str.replace(r"\broom\s?\d+", " ",regex=True) ## room number
+      text = text.str.replace(r'\b\d+\b', ' ',regex=True) ## isolated number
+      text = text.str.replace(r'\bleft', ' ',regex=True) ## side is almost always unimportant
+      text = text.str.replace(r'\bright', ' ',regex=True) ## side is almost always unimportant
+      text = text.str.replace(r'\bpost\b', ' ',regex=True) ## almost always unimportant
+      text = text.str.replace(r'\bhours', ' ',regex=True) ## time projection is hard to embed 
+      text = text.str.replace(r'\bintra', ' ',regex=True) ## this phrase is ususally superflous
+      text = text.str.replace(r'\bdr\s[a-z]+', "",regex=False) ## dr names
+      text = text.str.replace(r"\bc\d+", "cervical spine ",regex=True) ## spine segment abrev
+      text = text.str.replace(r"\bt\d+", "thoracic spine ",regex=True) ## spine segment abrev
+      text = text.str.replace(r"\bl\d+", "lumbar spine ",regex=True) ## spine segment abrev
+      text = text.str.replace(r'\b[a-z0-9]{1,2}\b', '', regex=True) ## 2 letter terms 
+      text = text.str.replace(r'\W+', ' ', regex=True) ## collapse multiple spaces
+    else:      
+      text = text.lower() 
+      # remove puntuation
+      text = re.sub(r"[^a-z0-9]", ' ', text)
+      # remove special chars
+      text = re.sub(r'\b\d+\b', ' ', text)
+      text = re.sub(r'\bleft', ' ', text)
+      text = re.sub(r'\bright', ' ', text)
+      text = re.sub(r'\bpost\b', ' ', text)
+      text = re.sub(r'\bhours', ' ', text)
+      text = re.sub(r'\bintra', ' ', text)
+      text = re.sub(r'\W', ' ', text)
+      #remove Dr. name
+      text = text.replace("dr.", "")
+      text = re.sub(r"\bc\d+", "cervical spine ", text)
+      text = re.sub(r"\bt\d+", "thoracic spine ", text)
+      text = re.sub(r"\bl\d+", "lumbar spine ", text)
+      text = re.sub(r"\bunos", " ", text)
+      text = re.sub(r"\bmoma", " ", text)
+      text = re.sub(r"\broom", " ", text)
+    return text
+
+
+
+def text_to_cbow(text, map_dict):
+  def transfun(text):
+    x = map(map_dict.get, text, repeat(map_dict.get("<unk>")))  
+    return np.sum(np.stack( list(map(lambda y: np.array(y, dtype=float), x ) ) ), axis=0)
+  embedded_proc = text_fixed_trans(text).str.split().transform(transfun) #.dropna()
+  embedded_proc_df = pd.DataFrame(embedded_proc.to_list(), index=embedded_proc.index)
+  embedded_proc_df.columns = ["em_CBOW_" + str(x) for x in (embedded_proc_df.columns) ]
+      #embedded_proc_df = embedded_proc_df.merge(new_index, on="orlogid_encoded", how="inner").set_index('new_person').reindex(list(range(pred_data_pre.index.min(),pred_data_pre.index.max()+1)),fill_value=0).reset_index().drop(["orlogid_encoded"], axis=1).rename(
+          #{"new_person": "person_integer"}, axis=1).sort_values(["person_integer"]).reset_index(drop=True).drop(["person_integer"], axis=1)
+  bow_cols = [col for col in embedded_proc_df.columns if 'BOW' in col]
+  embedded_proc_df['BOW_NA'] = np.where(np.isnan(embedded_proc_df[bow_cols[0]]), 1, 0)
+  embedded_proc_df.fillna(0, inplace=True)
+  return(embedded_proc_df)
 
 
 ## NOTE: this function does not use in-place modification. It wasn't performance critical. For larger datasets, that might be necessary
@@ -361,6 +422,7 @@ def lab_processing(AW_labs):
     AW_labs.loc[AW_labs.str.contains('not', na = False)] = '0'
     AW_labs.loc[AW_labs.str.contains('none', na = False)] = '0'
     AW_labs.loc[AW_labs.str.contains('undetected', na = False)] = '0'
+    AW_labs.loc[AW_labs.str.contains('cancel', na = False)] = 'NaN'
     AW_labs.loc[AW_labs.str.contains(r'\w{3,}\snegative', na = False, regex=True)] = "0"
     AW_labs.loc[AW_labs.str.contains(r'\w{3,}\spositive', na = False, regex=True)] = "1"
     AW_labs.loc[AW_labs.str.contains(r'negative\s\w{3,}', na = False, regex=True)] = "0"
@@ -387,7 +449,7 @@ def lab_processing(AW_labs):
 
 #subset = {key: lab_trans.get(key) for key in set(raw_data.columns).intersection( set(lab_trans.keys()) ) }
 
-def do_maps(raw_data):
+def do_maps(raw_data,name_map, lab_trans):
   ## fixed transformations, usually mappings
   for target in transformation_dict.keys():
     if target in raw_data.columns:
@@ -438,6 +500,8 @@ def preprocess_inference(preops, metadata):
     if 'plannedDispo' in preops.columns:
         preops['plannedDispo'].replace('', np.NaN, inplace=True)
         
+    for name in categorical_variables:
+      preops[name] = preops[name].astype('category')
     for a in preops.columns:
         if preops[a].dtype == 'bool':
             preops[a] = preops[a].astype('int32')
@@ -507,11 +571,13 @@ def predict(data):
         lab_trans = json.load(f)
       with open(os.path.join(os.getcwd(), "resources", 'preops_metadata.json') ) as f:
         preops_meta = json.load(f)
+      with open(os.path.join(os.getcwd(), "resources", 'filtered_cbow.json') ) as f:
+        cbow_map = json.load(f)
       ## map from clarity names to epic names
       with open(os.path.join(os.getcwd(), "resources", 'rwb_map.csv') ) as f:
         colnames = pd.read_csv(f,low_memory=False)
       # This feature is a problem, drop it for now
-      lab_trans["URINE UROBILINOGEN"] = None
+      #lab_trans["URINE UROBILINOGEN"] = None 
       colnames = colnames.loc[~(colnames.ClarityFeature == "URINE UROBILINOGEN")]
       name_map = colnames[["RWBFeature","ClarityFeature"]].set_index('RWBFeature')['ClarityFeature'].to_dict()
       #colnames = pd.read_csv(os.path.join(os.getcwd(), "resources", 'rwb_map.csv' ),low_memory=False )
@@ -529,14 +595,19 @@ def predict(data):
             pred_data_pre.loc[:,pred_data_pre.columns == target[0]] = pred_data_pre[target[0]].astype('str')
       ## this block re-creates the processing to get to the same format as the raw training data
       pred_data_pre = do_maps(pred_data_pre)
+      ## split off the procedure text
+      embedded_proc = text_to_cbow(pred_data_pre["procedureText"], cbow_map)
+      ## these are in the old meta
       pred_data_pre.rename(columns={"DVTold":"DVT", "PEold":"PE"} , inplace=True)
       ## this applies the pre-processing used by the classifier (OHE, column selection, normalization)
       ## it so happens that at this time there is only 1 element in the processed data
       preop_data = preprocess_inference(pred_data_pre, preops_meta)
       
+      preop_data = meta_coerce(preop_data )
       
       
-      ## Drop from training: PNA
+      
+      
     
     ##############################################
     ### Load other resources ###
@@ -552,10 +623,6 @@ def predict(data):
     
       xgb_model = XGBClassifier()
       xgb_model.load_model(os.path.join(os.getcwd(), "resources", "Mortality_30d_xgb.xgb") )
-      ct=pickle.load(open(os.path.join(os.getcwd(), "resources", 'transform.p') , "rb" ) )
-      ct.named_transformers_.onehotencoder.handle_unknown = 'ignore'
-
-
 
     ##############################################
     ### Use WebCallouts to get additional data ###
@@ -574,50 +641,6 @@ def predict(data):
     ## transform some special missing data
       dataframe.replace(to_replace="-1", value=np.nan, inplace=True)
 
-    ## special missing value (unlike most categoricals this is too uncommon to leave as-is)
-      dataframe['Sex'] = pd.to_numeric(dataframe['Sex'], errors="coerce") 
-      dataframe.replace(to_replace={'Sex':3}, value=np.nan, inplace=True)
-      dataframe['Sex'] -=1
-
-    ## transform lvef to quasinumeric
-      dataframe.replace(to_replace={'LVEF': {1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} },  inplace=True)
-
-    ## transform diastolic to quasinumeric
-      dataframe.replace(to_replace={'Diastolic': {888:2, 999:np.nan} },  inplace=True)
-
-      dataframe.replace(to_replace={'METs': {4:1, 3:2 , 2:3, 1:4, 888:5, 889:5, 999:np.nan} },  inplace=True)
-
-    ## TODO: load this map fro a csv instead of code
-      dataframe.replace(to_replace={'AnesthesiaType': {'2':'1', '4':'2', '6':'5', '7':'4', '8':'6', '9':'2', '10':'2', '11':'2', '12':'1', '5':'1', '999':'other'} },  inplace=True)
-      dataframe['AnesthesiaType'] = dataframe['AnesthesiaType'].fillna('Other')
-
-    ## this is some lumping that happened due to small categories
-      dataframe.replace(to_replace={'AnesthesiaType': {'5':'Other', '6':'Other'} },  inplace=True)
-
-    ## TODO: go back to MV and create a "spine" cat
-      dataframe.replace(to_replace={'Service': {'nan':'NA'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'480':'250'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'20':'10'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'30':'40'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'60':'10'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'70':'250'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'80':'10'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'90':'255'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'130':'NA'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'140':'200'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'150':'340'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'160':'255'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'170':'10'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'180':'255'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'190':'666'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'280':'NA'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'350':'250'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'395':'10'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'490':'666'} },  inplace=True)
-      dataframe.replace(to_replace={'Service': {'':'NA'} },  inplace=True)
-
-    
-      data_train2 = ct.transform(dataframe)
 
       raw_predictions = xgb_model.predict_proba(data_train2)[:,1]*100.
 
