@@ -14,20 +14,17 @@ import sys
 #sys.path.append('/home/eccp/epic_extract')
 from parcel import Parcel
 from parcel import converters
-
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.compose import make_column_transformer
-from sklearn.compose import make_column_selector
-
+#from sklearn.preprocessing import OneHotEncoder
+#from sklearn.compose import make_column_transformer
+#from sklearn.compose import make_column_selector
 from itertools import filterfalse
-
 import pandas as pd
 import numpy as np
 import json
 import math
 from itertools import repeat
-
-
+from xgboost import XGBClassifier
+from xgboost import DMatrix
 import re
 
 ## for testing only
@@ -620,7 +617,7 @@ def predict(data):
       ## this applies the pre-processing used by the classifier (OHE, column selection, normalization)
       ## it so happens that at this time there is only 1 element in the processed data
       preop_data = preprocess_inference(pred_data_pre, preops_meta)
-      
+      preop_data = pd.concat( [preop_data , embedded_proc] , axis=1)
       
       
       
@@ -639,7 +636,7 @@ def predict(data):
     
     
       xgb_model = XGBClassifier()
-      xgb_model.load_model(os.path.join(os.getcwd(), "resources", "Mortality_30d_xgb.xgb") )
+      xgb_model.load_model(os.path.join(os.getcwd(), "resources", "BestXgBoost_model_icu_wo_hm_None-None.json") )
 
     ##############################################
     ### Use WebCallouts to get additional data ###
@@ -649,6 +646,7 @@ def predict(data):
     ##############################################
     ###     Make your predictions here         ###
     ##############################################
+    raw_predictions = xgb_model.predict_proba(preop_data)
 
     
       bad_holder = dataframe['AnesthesiaType'] == '0'
