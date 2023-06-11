@@ -1,13 +1,12 @@
 ## this file contains transformation functions which map epic data from the back-end representation to the processed representation from clarity.
-
-## TODO: check what happens with empty procedure text (might have to re-inject a person integer like in the preops code)
+## TODO: check column order vs ST, getting wacky results
 ## NOTE: requires a more modern xgb than default, (tested with 1.7.5)
 
 import os
 import pickle
 import sys
 ## for testing in slate only
-#sys.path.append('/home/eccp/epic_extract')
+sys.path.append('/home/eccp/epic_extract')
 from parcel import Parcel
 from parcel import converters
 #from sklearn.preprocessing import OneHotEncoder
@@ -22,13 +21,21 @@ from itertools import repeat
 from xgboost import XGBClassifier
 from xgboost import DMatrix
 import re
+import ast
+
+def read_python_list_from_file(file_name):
+  with open(file_name, "r") as f:
+    list_string = f.read()
+  list_string = list_string.strip()
+  list_of_python_objects = ast.literal_eval(list_string)
+  return list_of_python_objects
 
 ## for testing only
 if True:
   data = json.load(open("resources/ondemand.json"))
   
   
-
+## A function to strip out certain ID numbers, room numbers, punctuation, doctor names, and expand the most common abbreviations
 def text_fixed_trans(text):
     if text is None:
       return None
@@ -74,16 +81,20 @@ def text_fixed_trans(text):
     return text
 
 
+## apply a fixed embedding on the words in the procedure, then sum them
+## create a final NA column for when no text is present
 
 def text_to_cbow(text, map_dict):
   def transfun(text):
     x = map(map_dict.get, text, repeat(map_dict.get("<unk>")))  
     return np.sum(np.stack( list(map(lambda y: np.array(y, dtype=float), x ) ) ), axis=0)
-  embedded_proc = text_fixed_trans(text).str.split().transform(transfun) #.dropna()
+  
+  embedded_proc = text_fixed_trans(text)
+  embedded_proc = embedded_proc[embedded_proc !='' ].str.split().transform(transfun)
   embedded_proc_df = pd.DataFrame(embedded_proc.to_list(), index=embedded_proc.index)
   embedded_proc_df.columns = ["em_CBOW_" + str(x) for x in (embedded_proc_df.columns) ]
-      #embedded_proc_df = embedded_proc_df.merge(new_index, on="orlogid_encoded", how="inner").set_index('new_person').reindex(list(range(pred_data_pre.index.min(),pred_data_pre.index.max()+1)),fill_value=0).reset_index().drop(["orlogid_encoded"], axis=1).rename(
-          #{"new_person": "person_integer"}, axis=1).sort_values(["person_integer"]).reset_index(drop=True).drop(["person_integer"], axis=1)
+  bow_na = pd.Series(0,index=text.index, name="BOW_NA") ## this acts like an index holder so that dropped rows are filled in
+  embedded_proc_df = embedded_proc_df.merge(bow_na, left_index=True, right_index=True, how='right')
   bow_cols = [col for col in embedded_proc_df.columns if 'BOW' in col]
   embedded_proc_df['BOW_NA'] = np.where(np.isnan(embedded_proc_df[bow_cols[0]]), 1, 0)
   embedded_proc_df.fillna(0, inplace=True)
@@ -106,7 +117,7 @@ def normalization(data0, mode, normalizing_value, contin_var):
     return data
 
 ## generated helper functions from GPT
-## many paf are defined to return -1 to protect against the dumb CCP behavior of always nulling if any inputs are null
+## many paf are defined to return -1 to protect against the dumb CCP behavior of nulling if any inputs are null
 def replace_m1_with_nan(col):
     if isinstance(col, pd.Series):
         # For pandas series, use .where() method to replace -1 with np.nan
@@ -132,25 +143,25 @@ def only_numbers(x):
     else:
         raise ValueError("Unsupported input type")
 
+## There are a small number of missing variables in the data feed
+## Fill in these blank values until they are fixed
 def make_constants(x):
   if(~any(x.columns == 'case_year' ) ) :
     x["case_year"] = 2021
   if(~any(x.columns == 'HCG,URINE, POC' ) ) :
     x["HCG,URINE, POC"] = 0
-    #x["HCG,URINE, POC"] = 0
-  #x['URINE UROBILINOGEN'] = 1.0
+  if(~any(x.columns == 'preop_vent_b' ) ) :
+    x['preop_vent_b'] = False
+
+## These were dropped from the classifier
   #x['opioids_count'] = 0
   #x['total_morphine_equivalent_dose'] = 0
   #x['preop_los'] = 0.1
-  if(~any(x.columns == 'preop_vent_b' ) ) :
-    x['preop_vent_b'] = False
   #x['delirium_history']= 0
   #x['MentalHistory_other'] = 0
   #x['MentalHistory_adhd'] = 0
-  #x['MRN_encoded'] = 0
   #x["PNA"] =0
   #x["delirium_history"] =0
-  #x["StartTime"] =0
 
 
 def apply_dict_mapping(x, mapping, default=np.nan):
@@ -234,18 +245,6 @@ negative_1_impute = [
 "LVEF"
 ]
 
-## TODO: check that these names are still good
-nan_to_zero = (
-'hasBlock'
-,'emergency'
-,'coombs'
-, "sbt"
-, "Diastolic"
-,"fall"
-, "NoCHF"
-, "NoROS"
-,"NutritionRisk"
-)
 
 ## suspect this is broke
 def cancerdeetst(col):
@@ -271,11 +270,14 @@ def cancerdeetst(col):
 
 
 
-
+## pre-processing mappings to apply to inputs
 ## Service is a double mapping because the variable representation changed, and it was easier than redoing it
 
 transformation_dict = {
     "TropI": lambda x :np.where( (x>0), x*.001 ,x)
+  #, "Diastolic":  lambda x: x.fillna(0) ## later dropped from the dataset
+  , "NoCHF":  lambda x: x.fillna(0) ## later dropped from the dataset
+  #, "NoROS":  lambda x: x.fillna(0) ## later dropped from the dataset
   , "Emergent": lambda x: x=="E"
   , "Race": lambda x: apply_dict_mapping(x, {"1":0, "2":1, "19":-1}, -1 )
   , "gait": lambda x: apply_dict_mapping(x, {"0":1, "10":2, "20":3}, -1 )
@@ -349,36 +351,34 @@ transformation_dict = {
     , "fall" : lambda x: (x==0).fillna(False).astype(str)
     , "Mental Status" : lambda x: (x==0).fillna(False).astype(str) 
     , "DyspneaF" : lambda x : np.select( [
-      x.str.lower().str.contains("never"), 
-      x.str.lower().str.contains("or less") , 
-      x.str.lower().str.contains("not dail"),
-      x.str.lower().str.contains("daily"),
-      x.str.lower().str.contains("throughout") ] , [
-      np.broadcast_to(0, x.shape), 
-      np.broadcast_to(1, x.shape), 
-      np.broadcast_to(2, x.shape), 
-      np.broadcast_to(3, x.shape), 
-      np.broadcast_to(4, x.shape) ] )  #
-    , "pastDialysis" : lambda x : ~pd.isnull(x)
+        x.str.lower().str.contains("never"), 
+        x.str.lower().str.contains("or less") , 
+        x.str.lower().str.contains("not dail"),
+        x.str.lower().str.contains("daily"),
+        x.str.lower().str.contains("throughout") ] , [
+        np.broadcast_to(0, x.shape), 
+        np.broadcast_to(1, x.shape), 
+        np.broadcast_to(2, x.shape), 
+        np.broadcast_to(3, x.shape), 
+        np.broadcast_to(4, x.shape) ] )  #
+    , "pastDialysis" : lambda x : ~(x.str.upper()=='ONGOING HEMODIALYSIS') ## TODO check other values
     , "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
     , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", np.nan])
 }
 
+# Can drop from the feed (not present in preops, not used in other defs):
+# fev1percent 
+# Diastolic
+# Mental Status
+# Cardiac Rhythm
 
-
-# suspect incorrect data feed
-# fev1percent -> does not exist (added), magnesium -> added
-# Coombs_Lab urnitr colorur covidrna hepb hepc hivlab  urmucus claritryur -> new extension
-# wheezing -> all zero (it's just rare)
-# icu_request -> added
-# gait has a factor map? -> yes, transformed to ints, which was probably a mistake 
-# bactur hyalineur urleuk glucoseur epiur urketone urprot -> fixed (change to string) ; this is not exactly the same (it converts thing leading with numbers to that number and otherwise to 0)
-# 
+## some inputs that turn into multiple variables.
+## i could have combined this with the set transforms below
 
 def genanest(col):
   if isinstance(col, pd.Series):
-    plannedAnesthesia = col.str.lower().str.contains("general")
-    hasBlock = col.str.lower().str.contains("|".join(["regional", "shot", "block", "epidural"]))
+    plannedAnesthesia = col.str.lower().str.contains("general").fillna(False).astype(int)
+    hasBlock = col.str.lower().str.contains("|".join(["regional", "shot", "block", "epidural"])).fillna(False)
     return pd.DataFrame({'PlannedAnesthesia': plannedAnesthesia, 'hasBlock': hasBlock}) 
   elif isinstance(col, np.ndarray):
     plannedAnesthesia = np.char.contains(col, "general")
@@ -390,10 +390,10 @@ def genanest(col):
 
 def mentaltrans(col):
   if isinstance(col, pd.Series):
-    MentalHistory_anxiety= col.str.lower().str.contains("anxiety")
-    MentalHistory_bipolar= col.str.lower().str.contains("bipol")
-    MentalHistory_depression= col.str.lower().str.contains("depr")
-    MentalHistory_schizophrenia= col.str.lower().str.contains("schiz")
+    MentalHistory_anxiety= col.str.lower().str.contains("anxiety").fillna(False)
+    MentalHistory_bipolar= col.str.lower().str.contains("bipol").fillna(False)
+    MentalHistory_depression= col.str.lower().str.contains("depr").fillna(False)
+    MentalHistory_schizophrenia= col.str.lower().str.contains("schiz").fillna(False)
     return pd.DataFrame({'MentalHistory_anxiety': MentalHistory_anxiety, 'MentalHistory_bipolar': MentalHistory_bipolar , "MentalHistory_depression":MentalHistory_depression, "MentalHistory_schizophrenia":MentalHistory_schizophrenia })
   elif isinstance(col, np.ndarray):
     MentalHistory_anxiety= np.char.contains(col, "anxiety")
@@ -412,18 +412,22 @@ multi_trans_dict = {
   , "mentalhx" : mentaltrans
 }
 
+## transformations that operate on sets of features
+
 set_trans_array = (
-  [["DVT", "PE"], lambda data: pd.DataFrame((data["DVT"] + data["PE"]) >0 ).rename(columns={0:"DVT_PE"})  ]
-  , [["Coombs_Lab", "Coombs_SDE"] , lambda data: pd.DataFrame((data["Coombs_Lab"].isin(["Positive"])) | (data["Coombs_SDE"] == "1") ).rename(columns={0:"Coombs"})  ]
-  , [["emergency_b" , "Emergent" ], lambda data: pd.DataFrame((data["emergency_b"] > 0) | data["Emergent"]).rename(columns={0:"emergency"})  ] 
-  , [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( (data["tobacco_sde"] >0) | (data["Last Tobac Use Status"] >1) ).rename(columns={0:"TOBACCO_USE"})  ] 
-  , [["ono2_sde_new" , "ono2" , "Resp. Support"], lambda data: pd.DataFrame( (data["Resp. Support"] ) | (data["ono2"].astype(float) > 0) | (data["ono2_sde_new"]) ).rename(columns={0:"on_o2"})  ] 
+  [["DVT", "PE"], lambda data: pd.DataFrame((data["DVT"] + data["PE"]) >0 ).fillna(False).rename(columns={0:"DVT_PE"})  ]
+  , [["Coombs_Lab", "Coombs_SDE"] , lambda data: pd.DataFrame((data["Coombs_Lab"].isin(["Positive"])) | (data["Coombs_SDE"] == "1") ).fillna(False).rename(columns={0:"Coombs"})  ]
+  , [["emergency_b" , "Emergent" ], lambda data: pd.DataFrame((data["emergency_b"] > 0) | data["Emergent"]).fillna(False).rename(columns={0:"emergency"})  ] 
+  , [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( (data["tobacco_sde"] >0) | (data["Last Tobac Use Status"] >1) ).fillna(False).rename(columns={0:"TOBACCO_USE"})  ] 
+  , [["NoCHF" , "CHF" ], lambda data: pd.DataFrame( (data["CHF"] > 0) & (data["NoCHF"]>0)  ).fillna(False).rename(columns={ 0:"CHF"})  ]
+  , [["pastDialysis" , "Dialysis" ], lambda data: pd.DataFrame( (data["Dialysis"] > 0) & (data["pastDialysis"]>0)  ).fillna(False).rename(columns={ 0:"Dialysis"})  ]
+  , [["ono2_sde_new" , "ono2" , "Resp. Support"], lambda data: pd.DataFrame( (data["Resp. Support"] ) | (data["ono2"].astype(float) > 0) | (data["ono2_sde_new"]).fillna(False) ).rename(columns={0:"on_o2"})  ] 
   )
 
 
 
 
-
+## fix up some text values that can be numbers
 ## assumes a pandas series
 ## weird 0.1 0.3 etc in maps are because the orginal mapping contains values which are replaced by the below to the same value, the intermediate as.list and write_json method create these "off" keys, but since they  all map to the same value it doesn't matter
 def lab_processing(AW_labs):
@@ -461,8 +465,7 @@ def lab_processing(AW_labs):
   return AW_labs
 
 
-#subset = {key: lab_trans.get(key) for key in set(raw_data.columns).intersection( set(lab_trans.keys()) ) }
-
+## this applies the mappings to get to the processed preops as they are in the depository
 def do_maps(raw_data,name_map, lab_trans):
   ## fixed transformations, usually mappings
   for target in transformation_dict.keys():
@@ -482,13 +485,14 @@ def do_maps(raw_data,name_map, lab_trans):
       raw_data = pd.concat([raw_data.rename( columns={v:v+"old" for v in vset}), fun(raw_data[vset] )] , axis=1)
   ## remap names so that I can apply the existing lab transformations
   raw_data.rename(columns=name_map, inplace=True)
-  ## TODO: note that this preserves nan! The source data has na's, and a consistent treatment has to match whatever the other did
+  ## NOTE: note that this preserves nan! The source data has na's, and a consistent treatment has to match whatever the other did
   for target in lab_trans.keys():
     if target in raw_data.columns:
       raw_data[target] = pd.Series(lab_processing(raw_data[target])).replace( lab_trans[target] )
   make_constants(raw_data)
   return raw_data
 
+## this applies the transformations unique to the model setup
 def preprocess_inference(preops, metadata):
     preops.reset_index(drop=True, inplace=True)
     # reassigning to make sure that the train and test data have the same type of variables
@@ -507,7 +511,7 @@ def preprocess_inference(preops, metadata):
     
     # this is kind of hardcoded; check your data beforehand for this; fixed this
     # this is done because there were two values for missing token (nan and -inf)
-    # TODO: try the isfinite function defined above
+    # NOTE: try the isfinite function defined above
     # this section creates NaNs only to be filled in later. it harmonizes the different kinds of not-a-number representations
     temp_list = [i for i in preops_ohe['PlannedAnesthesia'].unique() if np.isnan(i)] + [i for i in preops_ohe['PlannedAnesthesia'].unique() if math.isinf(i)]
     if temp_list !=[]:
@@ -580,7 +584,7 @@ def predict(data):
     # this is all the "simple" features
     #ordered_columns = [("Feature1", "int"), ("Feature2", "float")]
   ## map discrete lab values to factor index
-    if True:  
+    if True:
       with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
         lab_trans = json.load(f)
       with open(os.path.join(os.getcwd(), "resources", 'preops_metadata.json') ) as f:
@@ -617,6 +621,8 @@ def predict(data):
       preop_data = preprocess_inference(pred_data_pre, preops_meta)
       preop_data = pd.concat( [preop_data , embedded_proc] , axis=1)
       preop_data.drop(["person_integer"], inplace=True, axis=1)
+      vnames = read_python_list_from_file(os.path.join(os.getcwd(), "resources", 'fitted_feature_names.txt'))
+
       
       
       
@@ -645,7 +651,8 @@ def predict(data):
     ##############################################
     ###     Make your predictions here         ###
     ##############################################
-    raw_predictions = xgb_model.predict_proba(preop_data)
+      raw_predictions = xgb_model.predict_proba(preop_data)[:,1]*100.
+      #raw_predictions = xgb_model.predict_proba(preop_data.loc[:,vnames])[:,1]*100.
 
 
 
@@ -659,7 +666,7 @@ def predict(data):
           {
             # This ModelScore_DisplayName corresponds to
             # RegressionOutputOrClass1Probabilities in the return schema above
-              "Death_in_30d": [str(probability) for probability in raw_predictions],
+              "ICU": [str(probability) for probability in raw_predictions],
               #"OtherMetaData": [str(feat1_contribution*.02 ) for feat1_contribution in feature_contributions[colnames["EpicName"][0]]["Contributions"]]
           }
       }
@@ -667,7 +674,7 @@ def predict(data):
 
       return Parcel.pack_output(
           mapped_predictions=formatted_predictions,  # Dictionary with display names corresponding to predictions per sample
-          score_displayed="Death_in_30d",
+          score_displayed="ICU",
           # The output key you'd like end users to look at (e.g. the positive class name)
           chronicles_info=chronicles_info,  # Metadata that should be passed through
           # This optional parameter can be configured to be displayed in hover bubbles, etc.
