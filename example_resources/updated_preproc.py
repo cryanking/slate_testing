@@ -1,11 +1,7 @@
 ## this file contains transformation functions which map epic data from the back-end representation to the processed representation from clarity.
 
-## 2c. import list of cols actually used, or add a drop column to mapping (which is almost the same as equality of names)
-## 2d. there are category columns ... need to somehow import the identity /ActFastData/Epic_TS_Prototyping/preops_metadata.json after re-running sandhya's preproc -> also solves above
-## 3. numeric coerce based on above
-## 4. Import easiest  procedure model
-
-
+## TODO: check what happens with empty procedure text (might have to re-inject a person integer like in the preops code)
+## NOTE: requires a more modern xgb than default, (tested with 1.7.5)
 
 import os
 import pickle
@@ -448,6 +444,7 @@ def lab_processing(AW_labs):
     conditions = [
         AW_labs.eq("negative"),
         AW_labs.eq("trace"),
+        AW_labs.eq("rare"),
         AW_labs.eq("positive"),
         AW_labs.eq('presumptive'),
         AW_labs.eq("presumptive positive"),
@@ -456,9 +453,10 @@ def lab_processing(AW_labs):
         AW_labs.eq("repeatedly reactive"),
         AW_labs.isin(["1+", "2+", "3+", "4+"]),
         AW_labs.isin(["small", "moderate"]),
-        AW_labs.eq('large')
+        AW_labs.eq('large'),
+        AW_labs.eq('present')
     ]
-    choices = ['0', '0', '1', '1', '1', '1', '1', '1', '1', '1', '1']
+    choices = ['0', '0', '0', '1', '1', '1', '1', '1', '1', '1', '1', '1' , '1']
     AW_labs = np.select(conditions, choices, default=AW_labs)
   return AW_labs
 
@@ -618,6 +616,7 @@ def predict(data):
       ## it so happens that at this time there is only 1 element in the processed data
       preop_data = preprocess_inference(pred_data_pre, preops_meta)
       preop_data = pd.concat( [preop_data , embedded_proc] , axis=1)
+      preop_data.drop(["person_integer"], inplace=True, axis=1)
       
       
       
