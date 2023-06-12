@@ -186,6 +186,8 @@ def apply_dict_mapping(x, mapping, default=np.nan):
         # If x is a scalar, apply the mapping directly
         return mapping.get(x, default)
 
+ordinal_variables = [ "TOBACCO_USE" , "AR" , "AS" , "MR" , "MS" , "TR" , "ASA" , "plannedDispo" , "LVEF" , "FunctionalCapacity" , "DyspneaFreq" , "DiastolicFunction" , "CHF_class" , "cancerStatus" , "pre_aki_status" , "NutritionRisk" , "Level_of_Consciousness" , "poorDentition" , "orientation_numeric" , "Pain Score" , "case_year" , "gait" , "EPITHELIAL CELLS, SQUAMOUS, URINE" , "HYALINE CAST" , "RED BLOOD CELLS, URINE" , "WHITE BLOOD CELLS, URINE" ]
+
 
 ## this set of variables should all have -1 replaced with NaN
 negative_1_impute = [
@@ -242,7 +244,28 @@ negative_1_impute = [
 "ASA" , 
 "Diastolic" , 
 "METs" , 
-"LVEF"
+"LVEF" ,
+"Calcium" , 
+"PO2" , 
+"Pain Score" , 
+"basos" , 
+"eosin" , 
+"immgran" , 
+"ldh" , 
+"lymphs" , 
+"magnesium" , 
+"monos" , 
+"mpv" , 
+"neutrophil" , 
+"nrbc" , 
+"pco2" , 
+"pco2ven" , 
+"phven" , 
+"po2ven" , 
+"rbc" , 
+"so2" , 
+"urph" , 
+"urspecgrav" , 
 ]
 
 
@@ -364,6 +387,7 @@ transformation_dict = {
     , "pastDialysis" : lambda x : ~(x.str.upper()=='ONGOING HEMODIALYSIS') ## TODO check other values
     , "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
     , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", np.nan])
+    , 'MEWS LOC Score' : lambda x: x==0 # the raw LOC has a lot more subtle values, but all bad, and they mapped higher = worse whereas i mapped 1 = normal
 }
 
 # Can drop from the feed (not present in preops, not used in other defs):
