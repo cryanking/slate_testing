@@ -384,7 +384,7 @@ transformation_dict = {
         np.broadcast_to(2, x.shape), 
         np.broadcast_to(3, x.shape), 
         np.broadcast_to(4, x.shape) ] )  #
-    , "pastDialysis" : lambda x : ~(x.str.upper()=='ONGOING HEMODIALYSIS') ## TODO check other values
+    , "pastDialysis" : lambda x : (x.str.lower()=='past dialysis') 
     , "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
     , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", np.nan])
     , 'MEWS LOC Score' : lambda x: x==0 # the raw LOC has a lot more subtle values, but all bad, and they mapped higher = worse whereas i mapped 1 = normal
