@@ -6,7 +6,7 @@ import os
 import pickle
 import sys
 ## for testing in slate only
-sys.path.append('/home/eccp/epic_extract')
+#sys.path.append('/home/eccp/epic_extract')
 from parcel import Parcel
 from parcel import converters
 #from sklearn.preprocessing import OneHotEncoder
@@ -31,10 +31,10 @@ def read_python_list_from_file(file_name):
   return list_of_python_objects
 
 ## for testing only
-if True:
+if False:
   data = json.load(open("resources/ondemand.json"))
-  
-  
+
+
 ## A function to strip out certain ID numbers, room numbers, punctuation, doctor names, and expand the most common abbreviations
 def text_fixed_trans(text):
     if text is None:
@@ -186,7 +186,7 @@ def apply_dict_mapping(x, mapping, default=np.nan):
         # If x is a scalar, apply the mapping directly
         return mapping.get(x, default)
 
-ordinal_variables = [ "TOBACCO_USE" , "AR" , "AS" , "MR" , "MS" , "TR" , "ASA" , "plannedDispo" , "LVEF" , "FunctionalCapacity" , "DyspneaFreq" , "DiastolicFunction" , "CHF_class" , "cancerStatus" , "pre_aki_status" , "NutritionRisk" , "Level_of_Consciousness" , "poorDentition" , "orientation_numeric" , "Pain Score" , "case_year" , "gait" , "EPITHELIAL CELLS, SQUAMOUS, URINE" , "HYALINE CAST" , "RED BLOOD CELLS, URINE" , "WHITE BLOOD CELLS, URINE" ]
+#ordinal_variables = [ "TOBACCO_USE" , "AR" , "AS" , "MR" , "MS" , "TR" , "ASA" , "plannedDispo" , "LVEF" , "FunctionalCapacity" , "DyspneaFreq" , "DiastolicFunction" , "CHF_class" , "cancerStatus" , "pre_aki_status" , "NutritionRisk" , "Level_of_Consciousness" , "poorDentition" , "orientation_numeric" , "Pain Score" , "case_year" , "gait" , "EPITHELIAL CELLS, SQUAMOUS, URINE" , "HYALINE CAST" , "RED BLOOD CELLS, URINE" , "WHITE BLOOD CELLS, URINE" ]
 
 
 ## this set of variables should all have -1 replaced with NaN
@@ -266,18 +266,18 @@ negative_1_impute = [
 "so2" , 
 "urph" , 
 "urspecgrav" , 
+"LVEF" ,
 ]
 
 
-## suspect this is broke
 def cancerdeetst(col):
-  patterns = {"metastatic cancer":"4",  "current cancer":"3" , "in remission":"2", "s/p radiation":"2", "s/p chemo":"2", "skin cancer only":"1"  }
+  patterns = {"metastatic cancer":4,  "current cancer":3 , "in remission":2, "s/p radiation":2, "s/p chemo":2, "skin cancer only":1  }
   if isinstance(col, pd.Series):
+    col2 = pd.Series(0, index=col.index)
     for pattern in patterns.keys():
-      col[ col.str.contains(pattern) ] = patterns[pattern]
-    col[ ~col.isin(patterns.values()) ] = "-1"
-    col = pd.to_numeric(col, errors='coerce').astype(int)
-    return col
+      col2[ col.str.lower().str.contains(pattern) ] = col2[ col.str.lower().str.contains(pattern) ].clip(lower=patterns[pattern])
+    #col[ ~col.isin(patterns.values()) ] = "-1"
+    return col2
   elif isinstance(col, np.ndarray):
     for pattern in patterns.keys():
       col = np.where( np.char.contains(col, pattern), patterns[pattern], col )
@@ -299,14 +299,15 @@ def cancerdeetst(col):
 transformation_dict = {
     "TropI": lambda x :np.where( (x>0), x*.001 ,x)
   #, "Diastolic":  lambda x: x.fillna(0) ## later dropped from the dataset
+  , "Patient Sex ID": lambda x: (x==2).astype('int')
   , "NoCHF":  lambda x: x.fillna(0) ## later dropped from the dataset
   #, "NoROS":  lambda x: x.fillna(0) ## later dropped from the dataset
   , "Emergent": lambda x: x=="E"
   , "Race": lambda x: apply_dict_mapping(x, {"1":0, "2":1, "19":-1}, -1 )
-  , "gait": lambda x: apply_dict_mapping(x, {"0":1, "10":2, "20":3}, -1 )
-  , "Ethnicity": lambda x: apply_dict_mapping(x, {8:1 , 9:0, 12:-1}, -1 )
+  , "gait": lambda x: apply_dict_mapping(x, {"0":1, "10":2, "20":3}, np.nan )
+  , "Ethnicity": lambda x: apply_dict_mapping(x, {"8":1 , "9":0, "12":-1}, -1 )
   #, "dispo": lambda x: apply_dict_mapping(x.str.lower(), {"er":1,"outpatient":1,"23 hour admit":2, "floor":2,"obs. unit":3,"icu":4} , np.nan )
-  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x,  {'5' : 'Acute Critical Care Surgery' , 
+  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x.astype(int).astype(str),  {'5' : 'Acute Critical Care Surgery' , 
       '10' : 'Anesthesiology' , 
       '40' : 'Cardiothoracic' , 
       '50' : 'Cardiovascular' , 
@@ -357,7 +358,7 @@ transformation_dict = {
   , "Diastolic": lambda x: apply_dict_mapping(x, {0:0, 1:1, 2:2,3:3, 888:1, 999:1  }, np.nan )
   , "Pain Score":  only_numbers
   , "ono2_sde_new": lambda x: x.isin(["0", "nan"])
-  , "CAM": lambda x: np.where( (x>=1), "True", np.where(x==0, "nan", "False") )
+  , "CAM": lambda x: np.select( [pd.isnull(x), (x>=1), x==0],  ["nan", "True", "nan"], default="False" )
   , "orientation": lambda x: pd.DataFrame([
       x.str.lower().str.contains("x4") *4
       , x.str.lower().str.contains("x3")*3
@@ -366,13 +367,13 @@ transformation_dict = {
       , x.str.lower().str.contains("person").astype(int) + x.str.lower().str.contains("place").astype(int) + x.str.lower().str.contains("time").astype(int)+ x.str.lower().str.contains("situation").astype(int)
     ]).max(axis=0)
     , "An Start": lambda x: x/60.
-    , "activeInfection" : lambda x : ~pd.isnull(x)
-    , "ad8" : lambda x : (x==0).fillna(False).astype(str)
-    , "Barthel" : lambda x : (x<100).fillna(False) 
-    , "DementiaCogIm" : lambda x: x.isin(["0", "nan"])
-    , "ambulatory" : lambda x: (x==0).astype(str)
-    , "fall" : lambda x: (x==0).fillna(False).astype(str)
-    , "Mental Status" : lambda x: (x==0).fillna(False).astype(str) 
+    , "activeInfection" : lambda x : (x!="nan")
+    , "ad8" : lambda x : np.select( [x==0, pd.isnull(x)], ["1", "nan"], "0" )
+    #, "Barthel" : lambda x : (x<100).fillna(False) 
+    , "DementiaCogIm" : lambda x: ~x.isin(["0", "nan"])
+    , "ambulatory" : lambda x: np.select( [x==0, pd.isnull(x)], ["1", "nan"], "0" )
+    , "fall" : lambda x: np.select( [x==0, pd.isnull(x)], ["0", "nan"], "1" )
+    , "Mental Status" : lambda x: np.select( [x==0, pd.isnull(x)], ["1", "nan"], "0" )
     , "DyspneaF" : lambda x : np.select( [
         x.str.lower().str.contains("never"), 
         x.str.lower().str.contains("or less") , 
@@ -385,10 +386,23 @@ transformation_dict = {
         np.broadcast_to(3, x.shape), 
         np.broadcast_to(4, x.shape) ] )  #
     , "pastDialysis" : lambda x : (x.str.lower()=='past dialysis') 
-    , "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
+    #, "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
     , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", np.nan])
     , 'MEWS LOC Score' : lambda x: x==0 # the raw LOC has a lot more subtle values, but all bad, and they mapped higher = worse whereas i mapped 1 = normal
     , "dispo":  lambda x: apply_dict_mapping(x, {"OUTPATIENT":0, '23 HOUR ADMIT':1, "FLOOR":1, "OBS. UNIT":2 , "ICU":3, "ER":0}, np.nan )
+    , "epiur": lambda x: x.str.replace("\s","", regex=True)
+    , "urmucus" : lambda x: x.str.replace("nan", "0", regex=False)
+    ,"dentition": lambda x:np.select( [
+        x.str.lower().str.contains("loose") |
+        x.str.lower().str.contains("poor") |
+        x.str.lower().str.contains("missing") |
+        x.str.lower().str.contains("chipped") ,
+        x.str.lower().str.contains("edentulous") | 
+        x.str.lower().str.contains("partials") | 
+        x.str.lower().str.contains("dentures"),
+         ] , [
+        2, 1 ] )
+
 }
 
 # Can drop from the feed (not present in preops, not used in other defs):
@@ -469,7 +483,7 @@ def lab_processing(AW_labs):
     AW_labs.loc[AW_labs.str.contains(r'negative\s\w{3,}', na = False, regex=True)] = "0"
     AW_labs.loc[AW_labs.str.contains(r'positive\s\w{3,}', na = False, regex=True)] = "1"
     AW_labs.loc[AW_labs.str.contains(r'nonreactive', na = False, regex=True)] = "0"
-    AW_labs.loc[AW_labs.eq("nan")]= "0"
+    AW_labs.loc[AW_labs.eq("nan")]= "nan"
     conditions = [
         AW_labs.eq("negative"),
         AW_labs.eq("trace"),
@@ -630,6 +644,7 @@ def predict(data):
         data = data.get("modelInput")
     # unpack_input() separates metadata (chronicles_info) from the dataframe of features
       pred_data_pre, chronicles_info = Parcel.unpack_input( data, ordered_columns, dict(zip(used_cols, [icmconv]*len(used_cols))))
+      #pred_data_pre["dentition"] = "poor"
       ## occasionally, a column is all absent on a batch, which the above function will set to NaN and float type, even if it should be a string.
       for target in ordered_columns:
         if target[0] in pred_data_pre.columns:
@@ -641,12 +656,14 @@ def predict(data):
       embedded_proc = text_to_cbow(pred_data_pre["procedureText"], cbow_map)
       ## these are in the old meta
       pred_data_pre.rename(columns={"DVTold":"DVT", "PEold":"PE"} , inplace=True)
+      pred_data_pre['ABORH PAT INTERP'] = pred_data_pre['ABORH PAT INTERP'].astype(float, copy=True)
       ## this applies the pre-processing used by the classifier (OHE, column selection, normalization)
       ## it so happens that at this time there is only 1 element in the processed data
       preop_data = preprocess_inference(pred_data_pre, preops_meta)
       preop_data = pd.concat( [preop_data , embedded_proc] , axis=1)
       preop_data.drop(["person_integer"], inplace=True, axis=1)
-      vnames = read_python_list_from_file(os.path.join(os.getcwd(), "resources", 'fitted_feature_names.txt'))
+      #preop_data.to_csv("proc_data.csv")
+      #vnames = read_python_list_from_file(os.path.join(os.getcwd(), "resources", 'fitted_feature_names.txt'))
 
       
       
