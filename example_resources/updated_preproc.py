@@ -3,23 +3,24 @@
 ## NOTE: requires a more modern xgb than default, (tested with 1.7.5)
 
 import os
-import pickle
-import sys
 ## for testing in slate only
+#import sys
 #sys.path.append('/home/eccp/epic_extract')
 from parcel import Parcel
 from parcel import converters
 #from sklearn.preprocessing import OneHotEncoder
 #from sklearn.compose import make_column_transformer
 #from sklearn.compose import make_column_selector
-from itertools import filterfalse
+
 import pandas as pd
 import numpy as np
 import json
 import math
 from itertools import repeat
+
 from xgboost import XGBClassifier
 from xgboost import DMatrix
+
 import re
 import ast
 
