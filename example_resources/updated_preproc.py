@@ -352,8 +352,8 @@ transformation_dict = {
       'Urology' : 15 ,
       'Vascular' : 16 
       } , 0 )
-  , "Last Tobac Use Status": lambda x: apply_dict_mapping(x, {3:-1, 1:2 , 4:1 , 2:0 }, -1 )
-  , "tobacco_sde": lambda x: x.fillna(0)
+  , "Last Tobac Use Status": lambda x: apply_dict_mapping(x.fillna(0).astype(int), {3:0, 1:2 , 4:1 , 2:0 }, 0 )
+  , "tobacco_sde": lambda x: x.fillna(0).astype(int)
   , "cancerdeets" : cancerdeetst 
   , "Diastolic": lambda x: apply_dict_mapping(x, {0:0, 1:1, 2:2,3:3, 888:1, 999:1  }, np.nan )
   , "Pain Score":  only_numbers
@@ -457,7 +457,8 @@ set_trans_array = (
   [["DVT", "PE"], lambda data: pd.DataFrame((data["DVT"] + data["PE"]) >0 ).fillna(False).rename(columns={0:"DVT_PE"})  ]
   , [["Coombs_Lab", "Coombs_SDE"] , lambda data: pd.DataFrame((data["Coombs_Lab"].isin(["Positive"])) | (data["Coombs_SDE"] == "1") ).fillna(False).rename(columns={0:"Coombs"})  ]
   , [["emergency_b" , "Emergent" ], lambda data: pd.DataFrame((data["emergency_b"] > 0) | data["Emergent"]).fillna(False).rename(columns={0:"emergency"})  ] 
-  , [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( (data["tobacco_sde"] >0) | (data["Last Tobac Use Status"] >1) ).fillna(False).rename(columns={0:"TOBACCO_USE"})  ] 
+  , [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( data["Last Tobac Use Status"].clip(lower=data["tobacco_sde"] *2).fillna(0).rename("TOBACCO_USE")).rename(columns={0:"TOBACCO_USE"} )  ] 
+  #, [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( (data["tobacco_sde"] >0) | (data["Last Tobac Use Status"] >1) ).fillna(False).rename(columns={0:"TOBACCO_USE"})  ] 
   , [["NoCHF" , "CHF" ], lambda data: pd.DataFrame( (data["CHF"] > 0) & (data["NoCHF"]>0)  ).fillna(False).rename(columns={ 0:"CHF"})  ]
   , [["pastDialysis" , "Dialysis" ], lambda data: pd.DataFrame( (data["Dialysis"] > 0) & (data["pastDialysis"]>0)  ).fillna(False).rename(columns={ 0:"Dialysis"})  ]
   , [["ono2_sde_new" , "ono2" , "Resp. Support"], lambda data: pd.DataFrame( (data["Resp. Support"] ) | (data["ono2"].astype(float) > 0) | (data["ono2_sde_new"]).fillna(False) ).rename(columns={0:"on_o2"})  ] 
@@ -644,7 +645,9 @@ def predict(data):
         data = data.get("modelInput")
     # unpack_input() separates metadata (chronicles_info) from the dataframe of features
       pred_data_pre, chronicles_info = Parcel.unpack_input( data, ordered_columns, dict(zip(used_cols, [icmconv]*len(used_cols))))
-      #pred_data_pre["dentition"] = "poor"
+      ## this is just waiting for a column fix to hit production
+      if( pred_data_pre['dentition'].dtype==float ):
+        pred_data_pre['dentition'] = np.where(pred_data_pre['dentition'] > 0, "excellent", "poor" )
       ## occasionally, a column is all absent on a batch, which the above function will set to NaN and float type, even if it should be a string.
       for target in ordered_columns:
         if target[0] in pred_data_pre.columns:
@@ -656,6 +659,7 @@ def predict(data):
       embedded_proc = text_to_cbow(pred_data_pre["procedureText"], cbow_map)
       ## these are in the old meta
       pred_data_pre.rename(columns={"DVTold":"DVT", "PEold":"PE"} , inplace=True)
+      ## handle this one case until an upstream fix occurs to switch this to native str
       pred_data_pre['ABORH PAT INTERP'] = pred_data_pre['ABORH PAT INTERP'].astype(float, copy=True)
       ## this applies the pre-processing used by the classifier (OHE, column selection, normalization)
       ## it so happens that at this time there is only 1 element in the processed data
