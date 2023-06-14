@@ -359,7 +359,7 @@ transformation_dict = {
   , "cancerdeets" : cancerdeetst 
   , "Diastolic": lambda x: apply_dict_mapping(x, {0:0, 1:1, 2:2,3:3, 888:1, 999:1  }, np.nan )
   , "Pain Score":  only_numbers
-  , "ono2_sde_new": lambda x: x.isin(["0", "nan"])
+  , "ono2_sde_new": lambda x: ~x.isin(["0", "nan"])
   , "CAM": lambda x: np.select( [pd.isnull(x), (x>=1), x==0],  ["nan", "True", "nan"], default="False" )
   , "orientation": lambda x: pd.DataFrame([
       x.str.lower().str.contains("x4") *4
@@ -370,12 +370,12 @@ transformation_dict = {
     ]).max(axis=0)
     , "An Start": lambda x: x/60.
     , "activeInfection" : lambda x : (x!="nan")
-    , "ad8" : lambda x : np.select( [x==0, pd.isnull(x)], ["1", "nan"], "0" )
+    , "ad8" : lambda x : np.select( [x==0, pd.isnull(x)], ["False", "nan"], "True" )
     #, "Barthel" : lambda x : (x<100).fillna(False) 
     , "DementiaCogIm" : lambda x: ~x.isin(["0", "nan"])
-    , "ambulatory" : lambda x: np.select( [x==0, pd.isnull(x)], ["1", "nan"], "0" )
-    , "fall" : lambda x: np.select( [x==0, pd.isnull(x)], ["0", "nan"], "1" )
-    , "Mental Status" : lambda x: np.select( [x==0, pd.isnull(x)], ["1", "nan"], "0" )
+    , "ambulatory" : lambda x: np.select( [x==0, pd.isnull(x)], ["False", "nan"], "True" )
+    , "fall" : lambda x: np.select( [x==0, pd.isnull(x)], ["False", "nan"], "True" )
+    , "Mental Status" : lambda x: np.select( [x==0, pd.isnull(x)], ["False", "nan"], "True" )
     , "DyspneaF" : lambda x : np.select( [
         x.str.lower().str.contains("never"), 
         x.str.lower().str.contains("or less") , 
@@ -389,7 +389,7 @@ transformation_dict = {
         np.broadcast_to(4, x.shape) ] )  #
     , "pastDialysis" : lambda x : (x.str.lower()=='past dialysis') 
     #, "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
-    , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", np.nan])
+    , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", "nan"])
     , 'MEWS LOC Score' : lambda x: x==0 # the raw LOC has a lot more subtle values, but all bad, and they mapped higher = worse whereas i mapped 1 = normal
     , "dispo":  lambda x: apply_dict_mapping(x, {"OUTPATIENT":0, '23 HOUR ADMIT':1, "FLOOR":1, "OBS. UNIT":2 , "ICU":3, "ER":0}, np.nan )
     , "epiur": lambda x: x.str.replace("\s","", regex=True)
@@ -638,9 +638,13 @@ def predict(data):
       # This feature is a problem, drop it for now
       #lab_trans["URINE UROBILINOGEN"] = None 
       ## NOTE: this is dumb, but The column display names are not compatible with being mnemonics in nebula. This trick happens to work to run on either direct RWB exports and nebula report
+      ## detect the data source
       mnemonic_name = "RWBFeature" if any(' ' in key for key in data['Data'].keys()) else "mnemonic"
-      name_map = colnames[[mnemonic_name,"ClarityFeature"]].set_index(mnemonic_name)['ClarityFeature'].to_dict()
-      #colnames = pd.read_csv(os.path.join(os.getcwd(), "resources", 'rwb_map.csv' ),low_memory=False )
+      ## map to transform names to the format anticipated by the preprocessing and factor mapping
+      name_map = colnames[["RWBFeature","ClarityFeature"]].set_index("RWBFeature")['ClarityFeature'].to_dict()
+      ## map to transform real-time names to the offline RWB names
+      name_map2 = colnames[["mnemonic","RWBFeature"]].set_index("mnemonic")['RWBFeature'].to_dict()
+      
       icmconv = converters.InterconnectMissingValueConverter()
       used_cols = list(map(tuple, colnames[[mnemonic_name]].to_numpy()))
       ordered_columns = list(map(tuple, colnames[[mnemonic_name,"dtype"]].to_numpy()))
@@ -649,13 +653,16 @@ def predict(data):
     # unpack_input() separates metadata (chronicles_info) from the dataframe of features
       pred_data_pre, chronicles_info = Parcel.unpack_input( data, ordered_columns, dict(zip(used_cols, [icmconv]*len(used_cols))))
       ## this is just waiting for a column fix to hit production
-      if( pred_data_pre['dentition'].dtype==float ):
-        pred_data_pre['dentition'] = np.where(pred_data_pre['dentition'] > 0, "excellent", "poor" )
       ## occasionally, a column is all absent on a batch, which the above function will set to NaN and float type, even if it should be a string.
       for target in ordered_columns:
         if target[0] in pred_data_pre.columns:
           if (target[1] == 'str'):
             pred_data_pre.loc[:,pred_data_pre.columns == target[0]] = pred_data_pre[target[0]].astype('str')
+      ## swap the names to the front end names used to define transformations
+      if mnemonic_name == "mnemonic":
+        pred_data_pre.rename(columns=name_map2, inplace=True)
+      if( pred_data_pre['dentition'].dtype==float ):
+        pred_data_pre['dentition'] = np.where(pred_data_pre['dentition'] > 0, "excellent", "poor" )
       ## this block re-creates the processing to get to the same format as the raw training data
       pred_data_pre = do_maps(pred_data_pre, name_map, lab_trans)
       ## split off the procedure text
