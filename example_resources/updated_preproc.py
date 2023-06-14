@@ -375,7 +375,7 @@ transformation_dict = {
     , "DementiaCogIm" : lambda x: ~x.isin(["0", "nan"])
     , "ambulatory" : lambda x: np.select( [x==0, pd.isnull(x)], ["False", "nan"], "True" )
     , "fall" : lambda x: np.select( [x==0, pd.isnull(x)], ["False", "nan"], "True" )
-    , "Mental Status" : lambda x: np.select( [x==0, pd.isnull(x)], ["False", "nan"], "True" )
+    , "Mental Status" : lambda x: np.select( [x=="0", x=="nan"], ["False", "nan"], "True" )
     , "DyspneaF" : lambda x : np.select( [
         x.str.lower().str.contains("never"), 
         x.str.lower().str.contains("or less") , 
@@ -410,7 +410,6 @@ transformation_dict = {
 # Can drop from the feed (not present in preops, not used in other defs):
 # fev1percent 
 # Diastolic
-# Mental Status
 # Cardiac Rhythm
 
 ## some inputs that turn into multiple variables.
