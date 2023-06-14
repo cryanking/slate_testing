@@ -8,6 +8,7 @@ import os
 #sys.path.append('/home/eccp/epic_extract')
 from parcel import Parcel
 from parcel import converters
+from epic_lib import get_logger
 #from sklearn.preprocessing import OneHotEncoder
 #from sklearn.compose import make_column_transformer
 #from sklearn.compose import make_column_selector
@@ -625,7 +626,6 @@ def predict(data):
     # this is all the "simple" features
     #ordered_columns = [("Feature1", "int"), ("Feature2", "float")]
   ## map discrete lab values to factor index
-    if True:
       with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
         lab_trans = json.load(f)
       with open(os.path.join(os.getcwd(), "resources", 'preops_metadata.json') ) as f:
@@ -637,11 +637,13 @@ def predict(data):
         colnames = pd.read_csv(f,low_memory=False)
       # This feature is a problem, drop it for now
       #lab_trans["URINE UROBILINOGEN"] = None 
-      name_map = colnames[["RWBFeature","ClarityFeature"]].set_index('RWBFeature')['ClarityFeature'].to_dict()
+      ## NOTE: this is dumb, but The column display names are not compatible with being mnemonics in nebula. This trick happens to work to run on either direct RWB exports and nebula report
+      mnemonic_name = "RWBFeature" if any(' ' in key for key in data['Data'].keys()) else "mnemonic"
+      name_map = colnames[[mnemonic_name,"ClarityFeature"]].set_index(mnemonic_name)['ClarityFeature'].to_dict()
       #colnames = pd.read_csv(os.path.join(os.getcwd(), "resources", 'rwb_map.csv' ),low_memory=False )
       icmconv = converters.InterconnectMissingValueConverter()
-      used_cols = list(map(tuple, colnames[["RWBFeature"]].to_numpy()))
-      ordered_columns = list(map(tuple, colnames[["RWBFeature","dtype"]].to_numpy()))
+      used_cols = list(map(tuple, colnames[[mnemonic_name]].to_numpy()))
+      ordered_columns = list(map(tuple, colnames[[mnemonic_name,"dtype"]].to_numpy()))
       if "modelInput" in data:
         data = data.get("modelInput")
     # unpack_input() separates metadata (chronicles_info) from the dataframe of features
