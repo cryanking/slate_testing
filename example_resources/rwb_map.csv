@@ -123,7 +123,7 @@ PHTN,pHTN,float,PHTN,,pHTN
 PLATELET,Platelet count,float,,PLATELET_COUNT_P3-30600,Plateletcount
 PO2 ARTERIAL POC,PO2,float,,OXYGEN_MEASUREMENT_PARTIAL_PRESSURE_[PO2]_ARTERIAL_BLOOD_P3-73642,PO2
 "PO2, VENOUS",po2ven,float,,OXYGEN_MEASUREMENT_PARTIAL_PRESSURE_[PO2]_VENOUS_BLOOD_P3-73647Y,po2ven
-poorDentition,dentition,float,,,dentition
+poorDentition,dentition,str,,,dentition
 "POTASSIUM, PLASMA",Potassium,float,Potassium,POTASSIUM_MEASUREMENT_PLASMA_P3-73857Y,Potassium
 preop_del,CAM,float,,,CAM
 "PROTEIN, TOTAL, PLASMA",totalprot,float,,PROTEIN_MEASUREMENT_PLASMA_P3-7392AY,totalprot
@@ -146,7 +146,7 @@ SODIUM,Sodium,float,Sodium,SODIUM_MEASUREMENT_P3-74020,Sodium
 SpO2,SaO2,float,PreOp.SpO2,,SaO2
 StopBANG,stopbang,float,,,stopbang
 Stroke,Stroke,float,CV_TIA_STROKE,,Stroke
-SurgService_Name,Service,float,Surg_Type,,Service
+SurgService_Name,Service,str,Surg_Type,,Service
 Temp,Temp,float,,,Temp
 THYROID STIMULATING HORMONE,tsh,float,,THYROID_STIMULATING_HORMONE_[TSH]_MEASUREMENT_P3-74120,tsh
 Thyroid_disease,thyroid,float,,,thyroid
