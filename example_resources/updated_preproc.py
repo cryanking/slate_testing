@@ -309,7 +309,7 @@ transformation_dict = {
   , "gait": lambda x: apply_dict_mapping(x, {"0":1, "10":2, "20":3}, np.nan )
   , "Ethnicity": lambda x: apply_dict_mapping(x, {"8":1 , "9":0, "12":-1}, -1 )
   #, "dispo": lambda x: apply_dict_mapping(x.str.lower(), {"er":1,"outpatient":1,"23 hour admit":2, "floor":2,"obs. unit":3,"icu":4} , np.nan )
-  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x.astype(int).astype(str),  {'5' : 'Acute Critical Care Surgery' , 
+  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x,  {'5' : 'Acute Critical Care Surgery' , 
       '10' : 'Anesthesiology' , 
       '40' : 'Cardiothoracic' , 
       '50' : 'Cardiovascular' , 
@@ -511,6 +511,7 @@ def do_maps(raw_data,name_map, lab_trans):
   ## fixed transformations, usually mappings
   for target in transformation_dict.keys():
     if target in raw_data.columns:
+      print(target)
       raw_data[target] = transformation_dict[target](raw_data[target])
   ## variables with -1 as a wrapper for null
   for target in negative_1_impute:
@@ -625,6 +626,7 @@ def predict(data):
     # this is all the "simple" features
     #ordered_columns = [("Feature1", "int"), ("Feature2", "float")]
   ## map discrete lab values to factor index
+   #if True:
       with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
         lab_trans = json.load(f)
       with open(os.path.join(os.getcwd(), "resources", 'preops_metadata.json') ) as f:
@@ -669,7 +671,7 @@ def predict(data):
       ## these are in the old meta
       pred_data_pre.rename(columns={"DVTold":"DVT", "PEold":"PE"} , inplace=True)
       ## handle this one case until an upstream fix occurs to switch this to native str
-      pred_data_pre['ABORH PAT INTERP'] = pred_data_pre['ABORH PAT INTERP'].astype(float, copy=True)
+      pred_data_pre['ABORH PAT INTERP']=pred_data_pre['ABORH PAT INTERP'].map(lambda x: '{:.1f}'.format(float(x)) if isinstance(x, int) else x)
       ## this applies the pre-processing used by the classifier (OHE, column selection, normalization)
       ## it so happens that at this time there is only 1 element in the processed data
       preop_data = preprocess_inference(pred_data_pre, preops_meta)
