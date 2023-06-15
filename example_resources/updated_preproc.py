@@ -4,8 +4,8 @@
 
 import os
 ## for testing in slate only
-#import sys
-#sys.path.append('/home/eccp/epic_extract')
+import sys
+sys.path.append('/home/eccp/epic_extract')
 from parcel import Parcel
 from parcel import converters
 from epic_lib import get_logger
@@ -529,7 +529,8 @@ def do_maps(raw_data,name_map, lab_trans):
   ## NOTE: note that this preserves nan! The source data has na's, and a consistent treatment has to match whatever the other did
   for target in lab_trans.keys():
     if target in raw_data.columns:
-      raw_data[target] = pd.Series(lab_processing(raw_data[target])).replace( lab_trans[target] )
+      raw_data[target] = pd.Series(lab_processing(raw_data[target]))
+      raw_data[target] = raw_data[target].where(raw_data[target].isin(lab_trans[target].keys() ), 0 ).replace( lab_trans[target] ).astype(int)
   make_constants(raw_data)
   return raw_data
 
@@ -625,7 +626,7 @@ def predict(data):
     # this is all the "simple" features
     #ordered_columns = [("Feature1", "int"), ("Feature2", "float")]
   ## map discrete lab values to factor index
-   #if True:
+   if True:
       with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
         lab_trans = json.load(f)
       with open(os.path.join(os.getcwd(), "resources", 'preops_metadata.json') ) as f:
@@ -661,8 +662,6 @@ def predict(data):
       ## swap the names to the front end names used to define transformations
       if mnemonic_name == "mnemonic":
         pred_data_pre.rename(columns=name_map2, inplace=True)
-      if( pred_data_pre['dentition'].dtype==float ):
-        pred_data_pre['dentition'] = np.where(pred_data_pre['dentition'] > 0, "excellent", "poor" )
       ## this block re-creates the processing to get to the same format as the raw training data
       pred_data_pre = do_maps(pred_data_pre, name_map, lab_trans)
       ## split off the procedure text
@@ -670,7 +669,8 @@ def predict(data):
       ## these are in the old meta
       pred_data_pre.rename(columns={"DVTold":"DVT", "PEold":"PE"} , inplace=True)
       ## handle this one case until an upstream fix occurs to switch this to native str
-      pred_data_pre['ABORH PAT INTERP']=pred_data_pre['ABORH PAT INTERP'].map(lambda x: '{:.1f}'.format(float(x)) if isinstance(x, int) else x)
+      if 'ABORH PAT INTERP' in pred_data_pre.columns:
+        pred_data_pre['ABORH PAT INTERP']=pred_data_pre['ABORH PAT INTERP'].map(lambda x: '{:.1f}'.format(float(x)) if isinstance(x, int) else x)
       ## this applies the pre-processing used by the classifier (OHE, column selection, normalization)
       ## it so happens that at this time there is only 1 element in the processed data
       preop_data = preprocess_inference(pred_data_pre, preops_meta)
