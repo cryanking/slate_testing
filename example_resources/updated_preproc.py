@@ -511,7 +511,6 @@ def do_maps(raw_data,name_map, lab_trans):
   ## fixed transformations, usually mappings
   for target in transformation_dict.keys():
     if target in raw_data.columns:
-      print(target)
       raw_data[target] = transformation_dict[target](raw_data[target])
   ## variables with -1 as a wrapper for null
   for target in negative_1_impute:
