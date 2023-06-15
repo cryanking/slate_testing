@@ -4,8 +4,8 @@
 
 import os
 ## for testing in slate only
-import sys
-sys.path.append('/home/eccp/epic_extract')
+#import sys
+#sys.path.append('/home/eccp/epic_extract')
 from parcel import Parcel
 from parcel import converters
 from epic_lib import get_logger
@@ -626,7 +626,7 @@ def predict(data):
     # this is all the "simple" features
     #ordered_columns = [("Feature1", "int"), ("Feature2", "float")]
   ## map discrete lab values to factor index
-   if True:
+   #if True:
       with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
         lab_trans = json.load(f)
       with open(os.path.join(os.getcwd(), "resources", 'preops_metadata.json') ) as f:
