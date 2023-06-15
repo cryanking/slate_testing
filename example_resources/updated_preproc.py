@@ -3,12 +3,6 @@
 ## NOTE: requires a more modern xgb than default, (tested with 1.7.5)
 
 import os
-## for testing in slate only
-#import sys
-#sys.path.append('/home/eccp/epic_extract')
-from parcel import Parcel
-from parcel import converters
-from epic_lib import get_logger
 #from sklearn.preprocessing import OneHotEncoder
 #from sklearn.compose import make_column_transformer
 #from sklearn.compose import make_column_selector
@@ -25,17 +19,16 @@ from xgboost import DMatrix
 import re
 import ast
 
-def read_python_list_from_file(file_name):
-  with open(file_name, "r") as f:
-    list_string = f.read()
-  list_string = list_string.strip()
-  list_of_python_objects = ast.literal_eval(list_string)
-  return list_of_python_objects
-
 ## for testing only
 if False:
+# if True:
   data = json.load(open("resources/ondemand.json"))
+  import sys
+  sys.path.append('/home/eccp/epic_extract')
 
+from parcel import Parcel
+from parcel import converters
+from epic_lib import get_logger
 
 ## A function to strip out certain ID numbers, room numbers, punctuation, doctor names, and expand the most common abbreviations
 def text_fixed_trans(text):
@@ -82,6 +75,13 @@ def text_fixed_trans(text):
       text = re.sub(r"\broom", " ", text)
     return text
 
+
+def read_python_list_from_file(file_name):
+  with open(file_name, "r") as f:
+    list_string = f.read()
+  list_string = list_string.strip()
+  list_of_python_objects = ast.literal_eval(list_string)
+  return list_of_python_objects
 
 ## apply a fixed embedding on the words in the procedure, then sum them
 ## create a final NA column for when no text is present
@@ -529,8 +529,7 @@ def do_maps(raw_data,name_map, lab_trans):
   ## NOTE: note that this preserves nan! The source data has na's, and a consistent treatment has to match whatever the other did
   for target in lab_trans.keys():
     if target in raw_data.columns:
-      raw_data[target] = pd.Series(lab_processing(raw_data[target]))
-      raw_data[target] = raw_data[target].where(raw_data[target].isin(lab_trans[target].keys() ), 0 ).replace( lab_trans[target] ).astype(int)
+      raw_data[target] = pd.Series(lab_processing(raw_data[target])).map(lab_trans[target]).fillna(0).astype(int)
   make_constants(raw_data)
   return raw_data
 
@@ -626,7 +625,7 @@ def predict(data):
     # this is all the "simple" features
     #ordered_columns = [("Feature1", "int"), ("Feature2", "float")]
   ## map discrete lab values to factor index
-   #if True:
+   # if True:
       with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
         lab_trans = json.load(f)
       with open(os.path.join(os.getcwd(), "resources", 'preops_metadata.json') ) as f:
