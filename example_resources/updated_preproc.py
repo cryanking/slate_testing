@@ -309,7 +309,7 @@ transformation_dict = {
   , "gait": lambda x: apply_dict_mapping(x, {"0":1, "10":2, "20":3}, np.nan )
   , "Ethnicity": lambda x: apply_dict_mapping(x, {"8":1 , "9":0, "12":-1}, -1 )
   #, "dispo": lambda x: apply_dict_mapping(x.str.lower(), {"er":1,"outpatient":1,"23 hour admit":2, "floor":2,"obs. unit":3,"icu":4} , np.nan )
-  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x,  {'5' : 'Acute Critical Care Surgery' , 
+  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x.str.replace(" none", "", regex=False),  {'5' : 'Acute Critical Care Surgery' , 
       '10' : 'Anesthesiology' , 
       '40' : 'Cardiothoracic' , 
       '50' : 'Cardiovascular' , 
@@ -368,8 +368,8 @@ transformation_dict = {
       , x.str.lower().str.contains("x1")*1
       , x.str.lower().str.contains("person").astype(int) + x.str.lower().str.contains("place").astype(int) + x.str.lower().str.contains("time").astype(int)+ x.str.lower().str.contains("situation").astype(int)
     ]).max(axis=0)
-    , "An Start": lambda x: x/60.
-    , "activeInfection" : lambda x : (x!="nan")
+    , "An Start": lambda x: x.mod(86400) /60.
+    , "activeInfection" : lambda x : (x!=" none")
     , "ad8" : lambda x : np.select( [x==0, pd.isnull(x)], ["False", "nan"], "True" )
     #, "Barthel" : lambda x : (x<100).fillna(False) 
     , "DementiaCogIm" : lambda x: ~x.isin(["0", "nan"])
@@ -387,13 +387,13 @@ transformation_dict = {
         np.broadcast_to(2, x.shape), 
         np.broadcast_to(3, x.shape), 
         np.broadcast_to(4, x.shape) ] )  #
-    , "pastDialysis" : lambda x : (x.str.lower()=='past dialysis') 
+    #, "pastDialysis" : lambda x : (x.str.lower()=='past dialysis') # applied in hyperspace
     #, "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
-    , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA", "nan"])
+    , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA strip", "nan", " strip", ""])
     , 'MEWS LOC Score' : lambda x: x==0 # the raw LOC has a lot more subtle values, but all bad, and they mapped higher = worse whereas i mapped 1 = normal
-    , "dispo":  lambda x: apply_dict_mapping(x, {"OUTPATIENT":0, '23 HOUR ADMIT':1, "FLOOR":1, "OBS. UNIT":2 , "ICU":3, "ER":0}, np.nan )
+    , "dispo":  lambda x: apply_dict_mapping(x.str.replace(" none", "", regex=False), {"OUTPATIENT":0, '23 HOUR ADMIT':1, "FLOOR":1, "OBS. UNIT":2 , "ICU":3, "ER":0}, np.nan )
     , "epiur": lambda x: x.str.replace("\s","", regex=True)
-    , "urmucus" : lambda x: x.str.replace("nan", "0", regex=False)
+    , "Blood Type": lambda x: x.str.replace(" strip","", regex=False)
     ,"dentition": lambda x:np.select( [
         x.str.lower().str.contains("loose") |
         x.str.lower().str.contains("poor") |
@@ -407,18 +407,20 @@ transformation_dict = {
 
 }
 
-# Can drop from the feed (not present in preops, not used in other defs):
-# fev1percent 
-# Diastolic
-# Cardiac Rhythm
+
 
 ## some inputs that turn into multiple variables.
 ## i could have combined this with the set transforms below
 
+#general: 1,2
+#block: 6,8,4,5,9,10,11,12
+
 def genanest(col):
   if isinstance(col, pd.Series):
-    plannedAnesthesia = col.str.lower().str.contains("general").fillna(False).astype(int)
-    hasBlock = col.str.lower().str.contains("|".join(["regional", "shot", "block", "epidural"])).fillna(False)
+    #plannedAnesthesia = col.str.lower().str.contains("general").fillna(False).astype(int)
+    #hasBlock = col.str.lower().str.contains("|".join(["regional", "shot", "block", "epidural"])).fillna(False)
+    plannedAnesthesia = col.isin(["1","2"])
+    hasBlock = col.isin(["6","8","4","5","9","10","11","12"])
     return pd.DataFrame({'PlannedAnesthesia': plannedAnesthesia, 'hasBlock': hasBlock}) 
   elif isinstance(col, np.ndarray):
     plannedAnesthesia = np.char.contains(col, "general")
@@ -448,7 +450,7 @@ def mentaltrans(col):
   return[ MentalHistory_anxiety,MentalHistory_bipolar, MentalHistory_depression, MentalHistory_schizophrenia ]
 
 multi_trans_dict = {
-  "AN Type": genanest
+  "AnesthesiaType": genanest
   , "mentalhx" : mentaltrans
 }
 
@@ -456,7 +458,7 @@ multi_trans_dict = {
 
 set_trans_array = (
   [["DVT", "PE"], lambda data: pd.DataFrame((data["DVT"] + data["PE"]) >0 ).fillna(False).rename(columns={0:"DVT_PE"})  ]
-  , [["Coombs_Lab", "Coombs_SDE"] , lambda data: pd.DataFrame((data["Coombs_Lab"].isin(["Positive"])) | (data["Coombs_SDE"] == "1") ).fillna(False).rename(columns={0:"Coombs"})  ]
+  , [["Coombs_Lab", "Coombs_SDE"] , lambda data: pd.DataFrame((data["Coombs_Lab"].str.lower().str.contains(["positive"])) | (data["Coombs_SDE"] == "1") ).fillna(False).rename(columns={0:"Coombs"})  ]
   , [["emergency_b" , "Emergent" ], lambda data: pd.DataFrame((data["emergency_b"] > 0) | data["Emergent"]).fillna(False).rename(columns={0:"emergency"})  ] 
   , [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( data["Last Tobac Use Status"].clip(lower=data["tobacco_sde"] *2).fillna(0).rename("TOBACCO_USE")).rename(columns={0:"TOBACCO_USE"} )  ] 
   #, [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( (data["tobacco_sde"] >0) | (data["Last Tobac Use Status"] >1) ).fillna(False).rename(columns={0:"TOBACCO_USE"})  ] 
