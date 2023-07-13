@@ -630,7 +630,7 @@ def predict(data):
    # if True:
       with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
         lab_trans = json.load(f)
-      with open(os.path.join(os.getcwd(), "resources", 'preops_metadata.json') ) as f:
+      with open(os.path.join(os.getcwd(), "resources", 'preops_metadataicu.json') ) as f:
         preops_meta = json.load(f)
       with open(os.path.join(os.getcwd(), "resources", 'filtered_cbow.json') ) as f:
         cbow_map = json.load(f)
