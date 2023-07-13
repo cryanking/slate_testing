@@ -458,7 +458,7 @@ multi_trans_dict = {
 
 set_trans_array = (
   [["DVT", "PE"], lambda data: pd.DataFrame((data["DVT"] + data["PE"]) >0 ).fillna(False).rename(columns={0:"DVT_PE"})  ]
-  , [["Coombs_Lab", "Coombs_SDE"] , lambda data: pd.DataFrame((data["Coombs_Lab"].str.lower().str.contains(["positive"])) | (data["Coombs_SDE"] == "1") ).fillna(False).rename(columns={0:"Coombs"})  ]
+  , [["Coombs_Lab", "Coombs_SDE"] , lambda data: pd.DataFrame((data["Coombs_Lab"].str.lower().str.contains("positive")) | (data["Coombs_SDE"] == "1") ).fillna(False).rename(columns={0:"Coombs"})  ]
   , [["emergency_b" , "Emergent" ], lambda data: pd.DataFrame((data["emergency_b"] > 0) | data["Emergent"]).fillna(False).rename(columns={0:"emergency"})  ] 
   , [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( data["Last Tobac Use Status"].clip(lower=data["tobacco_sde"] *2).fillna(0).rename("TOBACCO_USE")).rename(columns={0:"TOBACCO_USE"} )  ] 
   #, [["tobacco_sde" , "Last Tobac Use Status" ], lambda data: pd.DataFrame( (data["tobacco_sde"] >0) | (data["Last Tobac Use Status"] >1) ).fillna(False).rename(columns={0:"TOBACCO_USE"})  ] 
