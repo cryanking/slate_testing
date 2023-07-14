@@ -671,7 +671,7 @@ def predict(data):
       
        
       ## split off the procedure text
-      warnings.warn(str(pred_data_pre["procedureText"]), UserWarning,2)
+      #warnings.warn(str(pred_data_pre["procedureText"]), UserWarning,2)
 
       embedded_proc = text_to_cbow(pred_data_pre["procedureText"], cbow_map)
       ## these are in the old meta
