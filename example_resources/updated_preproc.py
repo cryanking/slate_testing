@@ -3,6 +3,7 @@
 ## NOTE: requires a more modern xgb than default, (tested with 1.7.5)
 
 import os
+import warnings
 #from sklearn.preprocessing import OneHotEncoder
 #from sklearn.compose import make_column_transformer
 #from sklearn.compose import make_column_selector
@@ -53,6 +54,7 @@ def text_fixed_trans(text):
       text = text.str.replace(r"\bl\d+", "lumbar spine ",regex=True) ## spine segment abrev
       text = text.str.replace(r'\b[a-z0-9]{1,2}\b', '', regex=True) ## 2 letter terms 
       text = text.str.replace(r'\W+', ' ', regex=True) ## collapse multiple spaces
+      text = text.str.replace(r' none', '', regex=True) ## collapse multiple spaces
     else:      
       text = text.lower() 
       # remove puntuation
@@ -389,11 +391,11 @@ transformation_dict = {
         np.broadcast_to(4, x.shape) ] )  #
     #, "pastDialysis" : lambda x : (x.str.lower()=='past dialysis') # applied in hyperspace
     #, "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
-    , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA strip", "nan", " strip", ""])
+    , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA STRIP", "nan", " STRIP", ""])
     , 'MEWS LOC Score' : lambda x: x==0 # the raw LOC has a lot more subtle values, but all bad, and they mapped higher = worse whereas i mapped 1 = normal
-    , "dispo":  lambda x: apply_dict_mapping(x.str.replace(" none", "", regex=False), {"OUTPATIENT":0, '23 HOUR ADMIT':1, "FLOOR":1, "OBS. UNIT":2 , "ICU":3, "ER":0}, np.nan )
+    , "dispo":  lambda x: apply_dict_mapping(x.str.replace("  NONE", "", regex=False), {"OUTPATIENT":0, '23 HOUR ADMIT':1, "FLOOR":1, "OBS. UNIT":2 , "ICU":3, "ER":0}, np.nan )
     , "epiur": lambda x: x.str.replace("\s","", regex=True)
-    , "Blood Type": lambda x: x.str.replace(" strip","", regex=False)
+    , "Blood Type": lambda x: x.str.replace(" STRIP","", regex=False)
     ,"dentition": lambda x:np.select( [
         x.str.lower().str.contains("loose") |
         x.str.lower().str.contains("poor") |
@@ -620,9 +622,9 @@ def preprocess_inference(preops, metadata):
 
 
 def predict(data):
- 
+    warnings.filterwarnings("always")
     logger = get_logger()
-    try:
+    if True:
     # ordered_columns simply lists the feature names, and the type they should be cast to.
     # this is all the "simple" features
     #ordered_columns = [("Feature1", "int"), ("Feature2", "float")]
@@ -654,6 +656,7 @@ def predict(data):
         data = data.get("modelInput")
     # unpack_input() separates metadata (chronicles_info) from the dataframe of features
       pred_data_pre, chronicles_info = Parcel.unpack_input( data, ordered_columns, dict(zip(used_cols, [icmconv]*len(used_cols))))
+      #original_data = pred_data_pre.copy()
       ## this is just waiting for a column fix to hit production
       ## occasionally, a column is all absent on a batch, which the above function will set to NaN and float type, even if it should be a string.
       for target in ordered_columns:
@@ -665,7 +668,11 @@ def predict(data):
         pred_data_pre.rename(columns=name_map2, inplace=True)
       ## this block re-creates the processing to get to the same format as the raw training data
       pred_data_pre = do_maps(pred_data_pre, name_map, lab_trans)
+      
+       
       ## split off the procedure text
+      warnings.warn(str(pred_data_pre["procedureText"]), UserWarning,2)
+
       embedded_proc = text_to_cbow(pred_data_pre["procedureText"], cbow_map)
       ## these are in the old meta
       pred_data_pre.rename(columns={"DVTold":"DVT", "PEold":"PE"} , inplace=True)
@@ -674,12 +681,15 @@ def predict(data):
         pred_data_pre['ABORH PAT INTERP']=pred_data_pre['ABORH PAT INTERP'].map(lambda x: '{:.1f}'.format(float(x)) if isinstance(x, int) else x)
       ## this applies the pre-processing used by the classifier (OHE, column selection, normalization)
       ## it so happens that at this time there is only 1 element in the processed data
-      preop_data = preprocess_inference(pred_data_pre, preops_meta)
+      try:
+        preop_data = preprocess_inference(pred_data_pre, preops_meta)
+      except Exception:
+        warnings.warn("error2", UserWarning,2)
+        pass
       preop_data = pd.concat( [preop_data , embedded_proc] , axis=1)
       preop_data.drop(["person_integer"], inplace=True, axis=1)
       #preop_data.to_csv("proc_data.csv")
       #vnames = read_python_list_from_file(os.path.join(os.getcwd(), "resources", 'fitted_feature_names.txt'))
-
       
       
       
@@ -696,9 +706,12 @@ def predict(data):
      #test_data2 = pd.DataFrame.from_dict(test_data['Data'])
     
     
-    
-      xgb_model = XGBClassifier()
-      xgb_model.load_model(os.path.join(os.getcwd(), "resources", "BestXgBoost_model_icu_wo_hm_None-None.json") )
+      try:
+        xgb_model = XGBClassifier()
+        xgb_model.load_model(os.path.join(os.getcwd(), "resources", "BestXgBoost_model_icu_wo_hm_None-None.json") )
+      except Exception:
+        warnings.warn("error1", UserWarning,2)
+        pass
 
     ##############################################
     ### Use WebCallouts to get additional data ###
@@ -713,11 +726,6 @@ def predict(data):
 
 
 
-      added_features = {
-          "NewFeature": {
-              "Values": ["John Doe"]
-          }
-      }
       formatted_predictions = {
           "Classification1":  # this level corresponds to the Classification1 in the return schema shown above
           {
@@ -737,8 +745,7 @@ def predict(data):
           # This optional parameter can be configured to be displayed in hover bubbles, etc.
       )
 
-    except ValueError as error:
-       return(f"raising an exception and the error was {error}.")
+    
 # log.exception(f"raising an exception and the error was {error}.")
 
 ## this is currently unused (was designed for extracting event times from a text column that isn't working)

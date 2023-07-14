@@ -110,7 +110,7 @@ Pacemaker,PPM,float,PPM_ICD,,PPM
 PAD,PAD,float,PAD,,PAD
 Pain Score,Pain Score,str,,,PainScore
 pancreatitis,panc,float,,,panc
-pastDialysis,pastDialysis,str,,,pastDialysis
+pastDialysis,pastDialysis,float,,,pastDialysis
 pastTransplant,txp,float,,,txp
 "PCO2, ARTERIAL",pco2,float,,CARBON_DIOXIDE_MEASUREMENT_PARTIAL_PRESSURE_[PCO2]_ARTERIAL_BLOOD_P3-7225FY,pco2
 "PCO2, VENOUS",pco2ven,float,,CARBON_DIOXIDE_MEASUREMENT_PARTIAL_PRESSURE_[PCO2]_VENOUS_BLOOD_P3-72253Y,pco2ven
@@ -150,7 +150,7 @@ SurgService_Name,Service,str,Surg_Type,,Service
 Temp,Temp,float,,,Temp
 THYROID STIMULATING HORMONE,tsh,float,,THYROID_STIMULATING_HORMONE_[TSH]_MEASUREMENT_P3-74120,tsh
 Thyroid_disease,thyroid,float,,,thyroid
-time_of_day,An Start,float,,,AnStart
+time_of_day,time_of_day,float,,,time_of_day
 TR,TR,float,VALVULAR_DISEASE,,TR
 TRANSFERRIN SATURATION,transferrin,float,,TRANSFERRIN_SATURATION_P3-73343Y,transferrin
 TRIGLYCERIDES,trig,float,,TRIGLYCERIDES_MEASUREMENT_P3-74170,trig
@@ -179,3 +179,4 @@ procedureText,procedureText,str,,,procedureText
 mentalhx,mentalhx,str,,,mentalhx
 Coombs_SDE,Coombs_SDE,str,,,Coombs_SDE
 Level_of_Consciousness,MEWS LOC Score,float,,,MEWSLOCScore
+AnesthesiaType,AnesthesiaType,str,,,AnesthesiaType
