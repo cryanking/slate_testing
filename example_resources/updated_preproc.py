@@ -393,11 +393,7 @@ transformation_dict = {
     #, "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
     , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA STRIP", "nan", " STRIP", ""])
     , 'MEWS LOC Score' : lambda x: x==0 # the raw LOC has a lot more subtle values, but all bad, and they mapped higher = worse whereas i mapped 1 = normal
-<<<<<<< HEAD
     , "dispo":  lambda x: apply_dict_mapping(x.str.replace("  NONE", "", regex=False), {"OUTPATIENT":0, '23 HOUR ADMIT':1, "FLOOR":1, "OBS. UNIT":2 , "ICU":3, "ER":0}, np.nan )
-=======
-    , "dispo":  lambda x: apply_dict_mapping(x.str.replace(" +NONE", "", regex=True), {"OUTPATIENT":0, '23 HOUR ADMIT':1, "FLOOR":1, "OBS. UNIT":2 , "ICU":3, "ER":0}, np.nan )
->>>>>>> 175920b (rwb fixes)
     , "epiur": lambda x: x.str.replace("\s","", regex=True)
     , "Blood Type": lambda x: x.str.replace(" STRIP","", regex=False)
     ,"dentition": lambda x:np.select( [
