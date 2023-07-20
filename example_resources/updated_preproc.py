@@ -311,7 +311,7 @@ transformation_dict = {
   , "gait": lambda x: apply_dict_mapping(x, {"0":1, "10":2, "20":3}, np.nan )
   , "Ethnicity": lambda x: apply_dict_mapping(x, {"8":1 , "9":0, "12":-1}, -1 )
   #, "dispo": lambda x: apply_dict_mapping(x.str.lower(), {"er":1,"outpatient":1,"23 hour admit":2, "floor":2,"obs. unit":3,"icu":4} , np.nan )
-  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x.str.replace(" none", "", regex=False),  {'5' : 'Acute Critical Care Surgery' , 
+  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x.str.replace(" +NONE", "", regex=True, Case=False),  {'5' : 'Acute Critical Care Surgery' , 
       '10' : 'Anesthesiology' , 
       '40' : 'Cardiothoracic' , 
       '50' : 'Cardiovascular' , 
@@ -371,7 +371,7 @@ transformation_dict = {
       , x.str.lower().str.contains("person").astype(int) + x.str.lower().str.contains("place").astype(int) + x.str.lower().str.contains("time").astype(int)+ x.str.lower().str.contains("situation").astype(int)
     ]).max(axis=0)
     , "An Start": lambda x: x.mod(86400) /60.
-    , "activeInfection" : lambda x : (x!=" none")
+    , "activeInfection" : lambda x : (x!="  NONE")
     , "ad8" : lambda x : np.select( [x==0, pd.isnull(x)], ["False", "nan"], "True" )
     #, "Barthel" : lambda x : (x<100).fillna(False) 
     , "DementiaCogIm" : lambda x: ~x.isin(["0", "nan"])
@@ -393,7 +393,11 @@ transformation_dict = {
     #, "LVEF": lambda x : apply_dict_mapping(x , {-1:0.6, 1:.08, 2:0.15, 3:0.25, 4:0.35, 5:0.45, 6:0.55, 7:0.65, 8:0.7, 101:0.6, 102:0.4, 103:0.33, 104:0.2, 999:np.nan} )
     , "Resp. Support" : lambda x : ~x.isin(["NASAL CANNULA STRIP", "nan", " STRIP", ""])
     , 'MEWS LOC Score' : lambda x: x==0 # the raw LOC has a lot more subtle values, but all bad, and they mapped higher = worse whereas i mapped 1 = normal
+<<<<<<< HEAD
     , "dispo":  lambda x: apply_dict_mapping(x.str.replace("  NONE", "", regex=False), {"OUTPATIENT":0, '23 HOUR ADMIT':1, "FLOOR":1, "OBS. UNIT":2 , "ICU":3, "ER":0}, np.nan )
+=======
+    , "dispo":  lambda x: apply_dict_mapping(x.str.replace(" +NONE", "", regex=True), {"OUTPATIENT":0, '23 HOUR ADMIT':1, "FLOOR":1, "OBS. UNIT":2 , "ICU":3, "ER":0}, np.nan )
+>>>>>>> 175920b (rwb fixes)
     , "epiur": lambda x: x.str.replace("\s","", regex=True)
     , "Blood Type": lambda x: x.str.replace(" STRIP","", regex=False)
     ,"dentition": lambda x:np.select( [
