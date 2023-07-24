@@ -55,6 +55,7 @@ def text_fixed_trans(text):
       text = text.str.replace(r'\b[a-z0-9]{1,2}\b', '', regex=True) ## 2 letter terms 
       text = text.str.replace(r'\W+', ' ', regex=True) ## collapse multiple spaces
       text = text.str.replace(r' none', '', regex=True) ## collapse multiple spaces
+      text.loc[ ~text.str.contains(r'\w', na=False, regex=True) ] = "NA"
     else:      
       text = text.lower() 
       # remove puntuation
