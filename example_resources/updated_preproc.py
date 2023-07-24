@@ -312,7 +312,7 @@ transformation_dict = {
   , "gait": lambda x: apply_dict_mapping(x, {"0":1, "10":2, "20":3}, np.nan )
   , "Ethnicity": lambda x: apply_dict_mapping(x, {"8":1 , "9":0, "12":-1}, -1 )
   #, "dispo": lambda x: apply_dict_mapping(x.str.lower(), {"er":1,"outpatient":1,"23 hour admit":2, "floor":2,"obs. unit":3,"icu":4} , np.nan )
-  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x.str.replace(" +NONE", "", regex=True, Case=False),  {'5' : 'Acute Critical Care Surgery' , 
+  , "Service": lambda x: apply_dict_mapping( apply_dict_mapping(x.str.replace(" +NONE", "", regex=True, case=False),  {'5' : 'Acute Critical Care Surgery' , 
       '10' : 'Anesthesiology' , 
       '40' : 'Cardiothoracic' , 
       '50' : 'Cardiovascular' , 
