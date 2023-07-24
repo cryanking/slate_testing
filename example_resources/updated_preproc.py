@@ -633,6 +633,7 @@ def predict(data):
     #ordered_columns = [("Feature1", "int"), ("Feature2", "float")]
   ## map discrete lab values to factor index
    # if True:
+      logger.warning(str(data), description=None)  
       with open(os.path.join(os.getcwd(), "resources", 'factor_encoding.json') ) as f:
         lab_trans = json.load(f)
       with open(os.path.join(os.getcwd(), "resources", 'preops_metadataicu.json') ) as f:
