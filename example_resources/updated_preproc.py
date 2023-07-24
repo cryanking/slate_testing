@@ -371,6 +371,7 @@ transformation_dict = {
       , x.str.lower().str.contains("person").astype(int) + x.str.lower().str.contains("place").astype(int) + x.str.lower().str.contains("time").astype(int)+ x.str.lower().str.contains("situation").astype(int)
     ]).max(axis=0)
     , "An Start": lambda x: x.mod(86400) /60.
+    , "Weight": lambda x: x/16./2.2 # (starts in oz to kg)
     , "activeInfection" : lambda x : (x!="  NONE")
     , "ad8" : lambda x : np.select( [x==0, pd.isnull(x)], ["False", "nan"], "True" )
     #, "Barthel" : lambda x : (x<100).fillna(False) 
@@ -512,14 +513,15 @@ def lab_processing(AW_labs):
 
 ## this applies the mappings to get to the processed preops as they are in the depository
 def do_maps(raw_data,name_map, lab_trans):
-  ## fixed transformations, usually mappings
-  for target in transformation_dict.keys():
-    if target in raw_data.columns:
-      raw_data[target] = transformation_dict[target](raw_data[target])
   ## variables with -1 as a wrapper for null
   for target in negative_1_impute:
     if target in raw_data.columns:
       raw_data[target] = replace_m1_with_nan(raw_data[target])
+  ## fixed transformations, usually mappings
+  for target in transformation_dict.keys():
+    if target in raw_data.columns:
+      raw_data[target] = transformation_dict[target](raw_data[target])
+
   ## generate expected columns
   for target in multi_trans_dict.keys():
     if target in raw_data.columns:
@@ -622,7 +624,7 @@ def preprocess_inference(preops, metadata):
 
 
 def predict(data):
-    warnings.filterwarnings("always")
+    #warnings.filterwarnings("always")
     logger = get_logger()
     if True:
     # ordered_columns simply lists the feature names, and the type they should be cast to.
